@@ -9,6 +9,10 @@ from enemy import Enemy
 from camera import Camera
 from collectables import Collectable
 
+
+def hitbox_collide(player, collectable):
+    """Check collision between player's hitbox and collectable's rect."""
+    return player.hitbox.colliderect(collectable.rect)
 class Menu:
     def __init__(self, screen):
         self.screen = screen
@@ -91,7 +95,7 @@ class Menu:
         all_sprites = pygame.sprite.Group()
         blocks = pygame.sprite.Group()
         enemies = pygame.sprite.Group()
-        collectables = pygame.sprite.Group()
+        collectables = pygame.sprite.Group()  # Create a group for collectibles
 
         player = None
         for row_index, row in enumerate(data["level"]):
@@ -124,9 +128,15 @@ class Menu:
         self.camera = Camera(SCREEN_WIDTH, SCREEN_HEIGHT, len(data["level"][0]) * TILE_SIZE,
                              len(data["level"]) * TILE_SIZE)
 
-        self.run_level(all_sprites, player, blocks)
+        # Pass the collectables group to the run_level method for collision detection.
+        self.run_level(all_sprites, player, blocks, collectables)
 
-    def run_level(self, all_sprites, player, blocks):
+    def run_level(self, all_sprites, player, blocks, collectables):
+        # Create an enemy group if you need to update enemies as well.
+        # (If you already have an enemies group, you can update that instead.)
+        enemies = [sprite for sprite in all_sprites if
+                   hasattr(sprite, "update") and not hasattr(sprite, "handle_input")]
+
         running = True
         while running:
             for event in pygame.event.get():
@@ -134,15 +144,29 @@ class Menu:
                     pygame.quit()
                     sys.exit()
 
+            # Update player (requires blocks)
             player.update(blocks)
-            self.camera.update(player)
+            # Update animated sprites for proper animations (like collectables and enemies)
+            collectables.update()
+            for enemy in enemies:
+                enemy.update()
 
+            # Check for collisions between the player and collectibles.
+            collected = pygame.sprite.spritecollide(player, collectables, False, collided=hitbox_collide)
+            for collectable in collected:
+                if collectable.state != "disappear":
+                    collectable.collect()
+
+            # Update camera and draw all sprites.
+            self.camera.update(player)
             self.screen.fill(BG_COLOR)
             for sprite in all_sprites:
                 self.screen.blit(sprite.image, self.camera.apply(sprite))
 
             pygame.display.flip()
             self.clock.tick(FPS)
+
+
 
     def level_select(self):
         levels = ["Level 1", "Back"]
