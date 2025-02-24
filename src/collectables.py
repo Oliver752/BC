@@ -83,3 +83,85 @@ class Collectable(pygame.sprite.Sprite):
             self.state = "disappear"
             self.frame_index = 0
             self.last_update = pygame.time.get_ticks()
+
+
+class Heart(pygame.sprite.Sprite):
+    def __init__(self, x, y):
+        super().__init__()
+        # Scale heart to be half the tile size; maintain aspect ratio (original frame: 12x13)
+        heart_target_width = TILE_SIZE // 2
+        heart_target_height = int(heart_target_width * 13 / 16)  # adjusted for 12x13 frames
+
+        # Load heart animations using the provided spritesheets
+        self.animations = {
+            "idle": self.load_animation("assets/images/collectables/heart_idle.png", 18, 14, 8,
+                                          scale=(heart_target_width, heart_target_height)),
+            "disappear": self.load_animation("assets/images/collectables/heart_disappear.png", 12, 13, 2,
+                                             scale=(heart_target_width, heart_target_height))
+        }
+        self.state = "idle"  # Initial state
+        self.frame_index = 0
+        self.frame_duration = 100  # Duration per frame in milliseconds
+        self.last_update = pygame.time.get_ticks()
+
+        # Set the initial image and rect centered in the tile
+        self.image = self.animations[self.state][self.frame_index]
+        self.rect = self.image.get_rect(center=(x + TILE_SIZE // 2, y + TILE_SIZE // 2))
+
+    def load_animation(self, path, frame_width, frame_height, num_frames, scale=None, trim=(0, 0, 0, 0)):
+        """
+        Load a spritesheet and slice it into frames.
+        Parameters:
+            path: file path to the spritesheet.
+            frame_width, frame_height: dimensions of a single frame.
+            num_frames: number of frames in the animation.
+            scale: optional tuple (width, height) to scale the frames.
+            trim: optional tuple (left, top, right, bottom) to trim the frame.
+        Returns:
+            A list of pygame.Surface frames.
+        """
+        sheet = pygame.image.load(path).convert_alpha()
+        frames = []
+        for i in range(num_frames):
+            # Extract the frame (using the correct dimensions)
+            frame = sheet.subsurface(pygame.Rect(i * frame_width, 0, frame_width, frame_height))
+            # Trim the frame if needed
+            if trim != (0, 0, 0, 0):
+                frame = frame.subsurface(pygame.Rect(trim[0], trim[1], frame_width - trim[2], frame_height - trim[3]))
+            # Scale the frame if a scale is provided
+            if scale is not None:
+                frame = pygame.transform.scale(frame, scale)
+            frames.append(frame)
+        return frames
+
+    def update_animation(self):
+        """
+        Update the heart's animation.
+        Loops the idle animation; for disappear, plays once and then kills the sprite.
+        """
+        now = pygame.time.get_ticks()
+        if now - self.last_update > self.frame_duration:
+            self.last_update = now
+            if self.state == "idle":
+                self.frame_index = (self.frame_index + 1) % len(self.animations["idle"])
+            elif self.state == "disappear":
+                if self.frame_index < len(self.animations["disappear"]) - 1:
+                    self.frame_index += 1
+                else:
+                    self.kill()  # Remove the sprite when animation is done
+            self.image = self.animations[self.state][self.frame_index]
+
+    def update(self):
+        """Update the heart collectible (animation only)."""
+        self.update_animation()
+
+    def collect(self):
+        """
+        Trigger the collection of the heart.
+        Switches to the disappearing animation.
+        """
+        if self.state != "disappear":
+            self.state = "disappear"
+            self.frame_index = 0
+            self.last_update = pygame.time.get_ticks()
+

@@ -16,6 +16,9 @@ class Player(pygame.sprite.Sprite):
             "ground_left": self.load_animation("assets/images/player/ground_left_spritesheet.png", 312, 232, 1),
             "ground_right": self.load_animation("assets/images/player/ground_right_spritesheet.png", 312, 232, 1),
         }
+        # Player health: starts with 2 out of a maximum 3
+        self.health = 2
+        self.max_health = 3
 
         self.current_animation = "idle_right"
         self.frame_index = 0

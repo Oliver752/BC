@@ -7,12 +7,16 @@ from blocks import Block
 from player import Player
 from enemy import Enemy
 from camera import Camera
-from collectables import Collectable
+from collectables import Collectable, Heart
 
 
+
+# Helper function defined outside the class for collision detection
 def hitbox_collide(player, collectable):
     """Check collision between player's hitbox and collectable's rect."""
     return player.hitbox.colliderect(collectable.rect)
+
+
 class Menu:
     def __init__(self, screen):
         self.screen = screen
@@ -21,6 +25,22 @@ class Menu:
         self.input_font = pygame.font.Font(None, 40)
         self.options = ["Play", "Sandbox", "Settings", "Quit"]
         self.selected_index = 0
+
+        # Load the diamond icon (for gem count)
+        self.diamond_icon = pygame.image.load("assets/images/hud/diamond.png").convert_alpha()
+        self.diamond_icon = pygame.transform.scale(self.diamond_icon, (32, 32))
+
+        # Load and scale the healthbar image.
+        self.healthbar = pygame.image.load("assets/images/hud/healthbar.png").convert_alpha()
+        self.healthbar = pygame.transform.scale(self.healthbar, (198, 102))
+
+        # Load the HUD heart icon.
+        self.hud_heart = pygame.image.load("assets/images/hud/heart.png").convert_alpha()
+        self.hud_heart = pygame.transform.scale(self.hud_heart, (30, 25))
+
+        # Initialize diamond count (resets each time a level is loaded)
+        self.diamond_count = 0
+
 
     def draw_menu(self):
         self.screen.fill(BG_COLOR)
@@ -95,7 +115,7 @@ class Menu:
         all_sprites = pygame.sprite.Group()
         blocks = pygame.sprite.Group()
         enemies = pygame.sprite.Group()
-        collectables = pygame.sprite.Group()  # Create a group for collectibles
+        collectables = pygame.sprite.Group()  # Group for collectibles
 
         player = None
         for row_index, row in enumerate(data["level"]):
@@ -120,6 +140,11 @@ class Menu:
                     collectable = Collectable(x, y)
                     collectables.add(collectable)
                     all_sprites.add(collectable)
+                elif tile == "H":
+                    # Create a heart collectible when tile 'H' is encountered
+                    heart = Heart(x, y)
+                    collectables.add(heart)
+                    all_sprites.add(heart)
                 elif tile == "E":
                     enemy = Enemy(x, y)
                     enemies.add(enemy)
@@ -128,12 +153,14 @@ class Menu:
         self.camera = Camera(SCREEN_WIDTH, SCREEN_HEIGHT, len(data["level"][0]) * TILE_SIZE,
                              len(data["level"]) * TILE_SIZE)
 
+        # Reset diamond count at level load
+        self.diamond_count = 0
+
         # Pass the collectables group to the run_level method for collision detection.
         self.run_level(all_sprites, player, blocks, collectables)
 
     def run_level(self, all_sprites, player, blocks, collectables):
-        # Create an enemy group if you need to update enemies as well.
-        # (If you already have an enemies group, you can update that instead.)
+        # Create an enemy group if needed.
         enemies = [sprite for sprite in all_sprites if
                    hasattr(sprite, "update") and not hasattr(sprite, "handle_input")]
 
@@ -144,18 +171,28 @@ class Menu:
                     pygame.quit()
                     sys.exit()
 
-            # Update player (requires blocks)
+            # Update game objects
             player.update(blocks)
-            # Update animated sprites for proper animations (like collectables and enemies)
             collectables.update()
             for enemy in enemies:
                 enemy.update()
 
-            # Check for collisions between the player and collectibles.
+            # Collision detection with collectibles
             collected = pygame.sprite.spritecollide(player, collectables, False, collided=hitbox_collide)
-            for collectable in collected:
-                if collectable.state != "disappear":
-                    collectable.collect()
+            for collectible in collected:
+                if collectible.state != "disappear":
+                    if isinstance(collectible, Heart):
+                        # Only collect the heart if player's health is below max.
+                        if player.health < player.max_health:
+                            collectible.collect()
+                            player.health += 1
+                        else:
+                            # Player is at max health; do nothing so the heart remains.
+                            pass
+                    else:
+                        # For diamonds (or other collectible types)
+                        collectible.collect()
+                        self.diamond_count += 1
 
             # Update camera and draw all sprites.
             self.camera.update(player)
@@ -163,10 +200,36 @@ class Menu:
             for sprite in all_sprites:
                 self.screen.blit(sprite.image, self.camera.apply(sprite))
 
+            # --- Draw HUD elements ---
+            hud_offset = 10  # 10px offset
+
+            # Draw the healthbar at the top left.
+            self.screen.blit(self.healthbar, (hud_offset, hud_offset))
+
+            # Draw heart icons on top of the healthbar.
+            # Assume the healthbar is 198x102 and the heart icons are 32x32.
+            # Position the hearts relative to the healthbar.
+            healthbar_height = self.healthbar.get_height()  # should be 102
+            # Let's start drawing the hearts a little inset inside the healthbar.
+            start_x = hud_offset + 51
+            start_y = hud_offset + (healthbar_height - 25) // 2  # vertically centered in the healthbar
+            for i in range(player.max_health):
+                heart_x = start_x + i * (32 + 1)  # 10px spacing between hearts
+                # Only draw the heart if this index is less than player's current health.
+                if i < player.health:
+                    self.screen.blit(self.hud_heart, (heart_x, start_y))
+                # Optionally, you could draw a "missing" heart (e.g., a grayed-out version) for lost lives.
+
+            # Draw diamond icon and count at the top right.
+            icon_rect = self.diamond_icon.get_rect(topright=(SCREEN_WIDTH - hud_offset, hud_offset))
+            self.screen.blit(self.diamond_icon, icon_rect)
+            count_text = self.font.render(str(self.diamond_count), True, (255, 255, 255))
+            text_rect = count_text.get_rect(midright=(icon_rect.left - 5, icon_rect.centery))
+            self.screen.blit(count_text, text_rect)
+            # ---------------------------
+
             pygame.display.flip()
             self.clock.tick(FPS)
-
-
 
     def level_select(self):
         levels = ["Level 1", "Back"]
