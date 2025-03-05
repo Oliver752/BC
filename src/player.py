@@ -176,12 +176,19 @@ class Player(pygame.sprite.Sprite):
                     self.vel_y = 0
         self.rect.y = self.hitbox.y - 56
 
-    def update(self, blocks):
-        """Update player state."""
+    def update(self, blocks, bombs):
+        """Update player state, movement, animations, and handle bomb collisions."""
         self.handle_input()
         self.apply_gravity()
         self.move_and_collide(self.vel_x, self.vel_y, blocks)
 
+        # Check for bomb collisions
+        for bomb in bombs:
+            if bomb.exploding and self.hitbox.colliderect(bomb.rect):
+                self.health -= 1
+                bomb.kill()  # Remove bomb after damage is applied
+
+        # Do not override attack animation with movement animations
         # Do not override attack animation with movement animations
         if not self.attacking:
             if self.on_ground:
@@ -192,8 +199,13 @@ class Player(pygame.sprite.Sprite):
                 else:
                     self.set_animation("idle_right" if self.last_direction == "right" else "idle_left")
             else:
-                self.set_animation("jump_right" if self.last_direction == "right" else "jump_left")
+                # Check if the player is moving upward (jumping) or downward (falling)
+                if self.vel_y < 0:
+                    self.set_animation("jump_right" if self.last_direction == "right" else "jump_left")
+                else:
+                    self.set_animation("fall_right" if self.last_direction == "right" else "fall_left")
 
         self.update_animation()
         self.update_hitbox()
+0
 

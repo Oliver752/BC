@@ -160,9 +160,11 @@ class Menu:
         self.run_level(all_sprites, player, blocks, collectables)
 
     def run_level(self, all_sprites, player, blocks, collectables):
-        # Create an enemy group if needed.
-        enemies = [sprite for sprite in all_sprites if
-                   hasattr(sprite, "update") and not hasattr(sprite, "handle_input")]
+        """Runs the game level, handling updates, drawing, and interactions."""
+
+        # Create enemy and bomb groups
+        enemies = [sprite for sprite in all_sprites if isinstance(sprite, Enemy)]
+        bombs = pygame.sprite.Group()
 
         running = True
         while running:
@@ -171,13 +173,14 @@ class Menu:
                     pygame.quit()
                     sys.exit()
 
-            # Update game objects
-            player.update(blocks)
+            # ✅ Update game objects
+            player.update(blocks, bombs)
             collectables.update()
+            bombs.update(blocks, player)  # ✅ Ensure bombs update
             for enemy in enemies:
-                enemy.update()
+                enemy.update(player, blocks, bombs)  # ✅ Ensure enemies throw bombs
 
-            # Collision detection with collectibles
+            # ✅ Collision detection with collectibles
             collected = pygame.sprite.spritecollide(player, collectables, False, collided=hitbox_collide)
             for collectible in collected:
                 if collectible.state != "disappear":
@@ -186,48 +189,44 @@ class Menu:
                         if player.health < player.max_health:
                             collectible.collect()
                             player.health += 1
-                        else:
-                            # Player is at max health; do nothing so the heart remains.
-                            pass
                     else:
                         # For diamonds (or other collectible types)
                         collectible.collect()
                         self.diamond_count += 1
 
-            # Update camera and draw all sprites.
+            # ✅ Update camera and draw all sprites
             self.camera.update(player)
             self.screen.fill(BG_COLOR)
             for sprite in all_sprites:
                 self.screen.blit(sprite.image, self.camera.apply(sprite))
 
+            # ✅ Draw bombs separately so they appear properly
+            for bomb in bombs:
+                self.screen.blit(bomb.image, self.camera.apply(bomb))
+
             # --- Draw HUD elements ---
             hud_offset = 10  # 10px offset
 
-            # Draw the healthbar at the top left.
+            # ✅ Draw the healthbar at the top left
             self.screen.blit(self.healthbar, (hud_offset, hud_offset))
 
-            # Draw heart icons on top of the healthbar.
-            # Assume the healthbar is 198x102 and the heart icons are 32x32.
-            # Position the hearts relative to the healthbar.
-            healthbar_height = self.healthbar.get_height()  # should be 102
-            # Let's start drawing the hearts a little inset inside the healthbar.
+            # ✅ Draw heart icons on top of the healthbar
+            healthbar_height = self.healthbar.get_height()
             start_x = hud_offset + 51
-            start_y = hud_offset + (healthbar_height - 25) // 2  # vertically centered in the healthbar
+            start_y = hud_offset + (healthbar_height - 25) // 2  # Vertically centered in healthbar
             for i in range(player.max_health):
-                heart_x = start_x + i * (32 + 1)  # 10px spacing between hearts
-                # Only draw the heart if this index is less than player's current health.
+                heart_x = start_x + i * (32 + 1)  # Spacing between hearts
                 if i < player.health:
                     self.screen.blit(self.hud_heart, (heart_x, start_y))
-                # Optionally, you could draw a "missing" heart (e.g., a grayed-out version) for lost lives.
 
-            # Draw diamond icon and count at the top right.
+            # ✅ Draw diamond icon and count at the top right
             icon_rect = self.diamond_icon.get_rect(topright=(SCREEN_WIDTH - hud_offset, hud_offset))
             self.screen.blit(self.diamond_icon, icon_rect)
             count_text = self.font.render(str(self.diamond_count), True, (255, 255, 255))
             text_rect = count_text.get_rect(midright=(icon_rect.left - 5, icon_rect.centery))
             self.screen.blit(count_text, text_rect)
-            # ---------------------------
 
+            # ✅ Render everything
             pygame.display.flip()
             self.clock.tick(FPS)
 
