@@ -201,8 +201,10 @@ class Menu:
                 self.screen.blit(sprite.image, self.camera.apply(sprite))
 
             # ✅ Draw bombs separately so they appear properly
+            # ✅ Draw bombs separately so they appear properly
             for bomb in bombs:
                 self.screen.blit(bomb.image, self.camera.apply(bomb))
+
 
             # --- Draw HUD elements ---
             hud_offset = 10  # 10px offset

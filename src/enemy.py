@@ -5,8 +5,8 @@ from settings import TILE_SIZE, SCREEN_WIDTH
 class Bomb(pygame.sprite.Sprite):
     def __init__(self, x, y, direction):
         super().__init__()
-        self.animations = self.load_animation("assets/images/enemies/Enemy1/bomb_spritesheet.png", 19, 21, 4,scale_factor=4)
-        self.explosion_anim = self.load_animation("assets/images/enemies/Enemy1/boom_spritesheet.png", 52, 56, 6,scale_factor=4)
+        self.animations = self.load_animation("assets/images/enemies/Enemy1/bomb_spritesheet.png", 19, 21, 4,scale_factor=5)
+        self.explosion_anim = self.load_animation("assets/images/enemies/Enemy1/boom_spritesheet.png", 52, 56, 6,scale_factor=5)
         self.image = self.animations[0]
         self.rect = self.image.get_rect(center=(x, y))
         self.vel_x = 8 * direction  # ✅ Increased bomb speed (was 5)
@@ -86,11 +86,23 @@ class Bomb(pygame.sprite.Sprite):
                     self.vel_y = 0
 
     def start_explosion(self):
-        """Triggers bomb explosion."""
+        """Triggers bomb explosion without incorrect offset on the first frame."""
         self.exploding = True
-        self.image = self.explosion_anim[0]
         self.frame_index = 0
         self.explosion_time = pygame.time.get_ticks()
+
+        # Save the original center so the hitbox stays in the same place
+        original_center = self.rect.center
+
+        # ✅ Directly assign the first explosion frame **without manually offsetting it**
+        self.image = self.explosion_anim[self.frame_index]
+        self.rect = self.image.get_rect(center=original_center)  # ✅ Reset rect properly to center the image
+
+        # ✅ Set up the explosion hitbox (increase size if needed)
+        explosion_radius = 100  # Adjust size if necessary
+        self.explosion_rect = pygame.Rect(0, 0, explosion_radius * 2, explosion_radius * 2)
+        self.explosion_rect.center = original_center  # ✅ Ensure hitbox remains correctly positioned
+
 
 class Enemy(pygame.sprite.Sprite):
     def __init__(self, x, y):
@@ -212,9 +224,6 @@ class Enemy(pygame.sprite.Sprite):
             bomb_y = self.rect.centery - 10
             bomb = Bomb(bomb_x, bomb_y, self.direction)
             bombs.add(bomb)
-
-            print(f"Enemy at {self.rect.topleft} threw a bomb at {bomb.rect.topleft}")
-
             # ✅ After throwing, switch to "pick"
             self.state = "pick"
 
