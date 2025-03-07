@@ -82,7 +82,7 @@ class Player(pygame.sprite.Sprite):
 
     def set_animation(self, animation):
         """Change animation if different from current."""
-        # ✅ Prevent changing animation if the player is hurt
+        #  Prevent changing animation if the player is hurt
         if self.hurt and animation not in ["hit_left", "hit_right"]:
             return
 
@@ -105,31 +105,40 @@ class Player(pygame.sprite.Sprite):
             self.frame_index = 0  # Ensure first frame starts
             self.image = self.animations[self.current_animation][self.frame_index]  # Force first frame
 
+    def attack_hitbox(self):
+        attack_width = 80  # Adjust based on attack range
+        attack_height = 50  # Adjust height if needed
+
+        if self.last_direction == "right":
+            return pygame.Rect(self.hitbox.right, self.hitbox.top, attack_width, attack_height)
+        else:
+            return pygame.Rect(self.hitbox.left - attack_width, self.hitbox.top, attack_width, attack_height)
+
     def update_animation(self):
         """Update player's animation without interrupting attack, knockback, or damage animations."""
         now = pygame.time.get_ticks()
 
-        # ✅ Ensure the hit animation plays fully before switching back
+        #  Ensure the hit animation plays fully before switching back
         if self.hurt:
             if now - self.hurt_timer > self.hurt_duration:
-                self.hurt = False  # ✅ End hit animation after duration
+                self.hurt = False  #  End hit animation after duration
                 self.set_animation("idle_right" if self.last_direction == "right" else "idle_left")
             else:
-                # ✅ Play the hit animation (loop between 2 frames)
+                #  Play the hit animation (loop between 2 frames)
                 if now - self.last_update > 200:  # Adjust speed if needed
                     self.last_update = now
                     self.frame_index = (self.frame_index + 1) % len(self.animations[self.current_animation])
                     self.image = self.animations[self.current_animation][self.frame_index]
-            return  # ✅ Prevent other animations from playing while hurt
+            return  #  Prevent other animations from playing while hurt
 
-        # ✅ Ensure knockback animation plays before other animations
+        #  Ensure knockback animation plays before other animations
         if self.knockback:
             if now - self.knockback_timer > self.knockback_duration:
-                self.knockback = False  # ✅ End knockback after duration
+                self.knockback = False  #  End knockback after duration
                 self.vel_x = 0  # Stop horizontal movement after knockback ends
-            return  # ✅ Prevent other animations from playing while knocked back
+            return  #  Prevent other animations from playing while knocked back
 
-        # ✅ Continue normal animation updates
+        #  Continue normal animation updates
         if self.attacking:
             if now - self.attack_start_time > self.attack_duration:
                 self.attacking = False  # End attack after duration
@@ -150,7 +159,7 @@ class Player(pygame.sprite.Sprite):
 
     def handle_input(self):
         """Handles movement and attack input."""
-        if self.knockback:  # ✅ Disable input during knockback
+        if self.knockback:  #  Disable input during knockback
             return
 
         keys = pygame.key.get_pressed()
@@ -215,46 +224,49 @@ class Player(pygame.sprite.Sprite):
                     self.vel_y = 0
         self.rect.y = self.hitbox.y - 56
 
-    def update(self, blocks, bombs):
+    def update(self, blocks, bombs, enemies):
         """Update player state, movement, animations, and handle bomb collisions."""
         self.handle_input()
         self.apply_gravity()
         self.move_and_collide(self.vel_x, self.vel_y, blocks)
 
-        # ✅ Check for bomb collisions (only on the first frame & if not immune)
+        #  Check for bomb collisions (only on the first frame & if not immune)
         for bomb in bombs:
             if bomb.exploding and bomb.frame_index == 0 and self.hitbox.colliderect(bomb.explosion_rect):
-                if not self.immune:  # ✅ Only take damage if NOT immune
+                if not self.immune:  #  Only take damage if NOT immune
                     self.health -= 1
                     self.immune = True
                     self.immune_timer = pygame.time.get_ticks()
 
-                    # ✅ Apply knockback
+                    #  Apply knockback
                     self.knockback = True
                     self.knockback_timer = pygame.time.get_ticks()
 
-                    # ✅ Play the hit animation
+                    #  Play the hit animation
                     self.hurt = True
                     self.hurt_timer = pygame.time.get_ticks()
 
                     if self.last_direction == "right":
                         self.vel_x = -self.knockback_force_x  # Knockback to the left
-                        self.set_animation("hit_right")  # ✅ Play hit animation
+                        self.set_animation("hit_right")  #  Play hit animation
                     else:
                         self.vel_x = self.knockback_force_x  # Knockback to the right
-                        self.set_animation("hit_left")  # ✅ Play hit animation
+                        self.set_animation("hit_left")  #  Play hit animation
                     self.vel_y = self.knockback_force_y  # Apply vertical knockback
 
-        # ✅ Reset immunity after 1 second
+        #  Reset immunity after 1 second
         if self.immune:
             if pygame.time.get_ticks() - self.immune_timer > self.immune_duration:
-                self.immune = False  # ✅ Reset immunity after 1 second
-        # ✅ Handle knockback duration
+                self.immune = False  #  Reset immunity after 1 second
+        #  Handle knockback duration
         if self.knockback:
             if pygame.time.get_ticks() - self.knockback_timer > self.knockback_duration:
-                self.knockback = False  # ✅ End knockback after duration
+                self.knockback = False  #  End knockback after duration
                 self.vel_x = 0  # Stop horizontal movement after knockback ends
-
+        if self.attacking:
+            for enemy in enemies:  # Loop through all enemies
+                if self.attack_hitbox().colliderect(enemy.hitbox):  # Check if attack hits
+                    enemy.take_damage()  #  Apply damage to the enemy
         # Do not override attack animation with movement animations
         if not self.attacking:
             if self.on_ground:

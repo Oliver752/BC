@@ -173,14 +173,14 @@ class Menu:
                     pygame.quit()
                     sys.exit()
 
-            # ✅ Update game objects
-            player.update(blocks, bombs)
+            #  Update game objects
+            player.update(blocks, bombs, enemies)
             collectables.update()
-            bombs.update(blocks, player)  # ✅ Ensure bombs update
+            bombs.update(blocks, player)  #  Ensure bombs update
             for enemy in enemies:
-                enemy.update(player, blocks, bombs)  # ✅ Ensure enemies throw bombs
+                enemy.update(player, blocks, bombs)  #  Ensure enemies throw bombs
 
-            # ✅ Collision detection with collectibles
+            #  Collision detection with collectibles
             collected = pygame.sprite.spritecollide(player, collectables, False, collided=hitbox_collide)
             for collectible in collected:
                 if collectible.state != "disappear":
@@ -194,14 +194,14 @@ class Menu:
                         collectible.collect()
                         self.diamond_count += 1
 
-            # ✅ Update camera and draw all sprites
+            #  Update camera and draw all sprites
             self.camera.update(player)
             self.screen.fill(BG_COLOR)
             for sprite in all_sprites:
                 self.screen.blit(sprite.image, self.camera.apply(sprite))
 
-            # ✅ Draw bombs separately so they appear properly
-            # ✅ Draw bombs separately so they appear properly
+            #  Draw bombs separately so they appear properly
+            #  Draw bombs separately so they appear properly
             for bomb in bombs:
                 self.screen.blit(bomb.image, self.camera.apply(bomb))
 
@@ -209,10 +209,10 @@ class Menu:
             # --- Draw HUD elements ---
             hud_offset = 10  # 10px offset
 
-            # ✅ Draw the healthbar at the top left
+            #  Draw the healthbar at the top left
             self.screen.blit(self.healthbar, (hud_offset, hud_offset))
 
-            # ✅ Draw heart icons on top of the healthbar
+            #  Draw heart icons on top of the healthbar
             healthbar_height = self.healthbar.get_height()
             start_x = hud_offset + 51
             start_y = hud_offset + (healthbar_height - 25) // 2  # Vertically centered in healthbar
@@ -221,14 +221,14 @@ class Menu:
                 if i < player.health:
                     self.screen.blit(self.hud_heart, (heart_x, start_y))
 
-            # ✅ Draw diamond icon and count at the top right
+            #  Draw diamond icon and count at the top right
             icon_rect = self.diamond_icon.get_rect(topright=(SCREEN_WIDTH - hud_offset, hud_offset))
             self.screen.blit(self.diamond_icon, icon_rect)
             count_text = self.font.render(str(self.diamond_count), True, (255, 255, 255))
             text_rect = count_text.get_rect(midright=(icon_rect.left - 5, icon_rect.centery))
             self.screen.blit(count_text, text_rect)
 
-            # ✅ Render everything
+            #  Render everything
             pygame.display.flip()
             self.clock.tick(FPS)
 

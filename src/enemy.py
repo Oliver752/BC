@@ -9,7 +9,7 @@ class Bomb(pygame.sprite.Sprite):
         self.explosion_anim = self.load_animation("assets/images/enemies/Enemy1/boom_spritesheet.png", 52, 56, 6,scale_factor=5)
         self.image = self.animations[0]
         self.rect = self.image.get_rect(center=(x, y))
-        self.vel_x = 8 * direction  # ✅ Increased bomb speed (was 5)
+        self.vel_x = 8 * direction  #  Increased bomb speed (was 5)
 
         self.vel_y = -15  # Initial upward motion
         self.gravity = 0.5
@@ -25,7 +25,7 @@ class Bomb(pygame.sprite.Sprite):
         frames = []
         for i in range(num_frames):
             frame = sheet.subsurface(pygame.Rect(i * frame_width, 0, frame_width, frame_height))
-            # ✅ Scale the bomb image (default scale_factor=2 doubles the size)
+            #  Scale the bomb image (default scale_factor=2 doubles the size)
             scaled_frame = pygame.transform.scale(frame, (frame_width * scale_factor, frame_height * scale_factor))
             frames.append(scaled_frame)
         return frames
@@ -94,14 +94,14 @@ class Bomb(pygame.sprite.Sprite):
         # Save the original center so the hitbox stays in the same place
         original_center = self.rect.center
 
-        # ✅ Directly assign the first explosion frame **without manually offsetting it**
+        #  Directly assign the first explosion frame **without manually offsetting it**
         self.image = self.explosion_anim[self.frame_index]
-        self.rect = self.image.get_rect(center=original_center)  # ✅ Reset rect properly to center the image
+        self.rect = self.image.get_rect(center=original_center)  #  Reset rect properly to center the image
 
-        # ✅ Set up the explosion hitbox (increase size if needed)
+        #  Set up the explosion hitbox (increase size if needed)
         explosion_radius = 100  # Adjust size if necessary
         self.explosion_rect = pygame.Rect(0, 0, explosion_radius * 2, explosion_radius * 2)
-        self.explosion_rect.center = original_center  # ✅ Ensure hitbox remains correctly positioned
+        self.explosion_rect.center = original_center  #  Ensure hitbox remains correctly positioned
 
 
 class Enemy(pygame.sprite.Sprite):
@@ -114,6 +114,8 @@ class Enemy(pygame.sprite.Sprite):
             "run_left": self.load_animation("assets/images/enemies/Enemy1/run_spritesheet.png", 156, 156, 6),
             "throw_left": self.load_animation("assets/images/enemies/Enemy1/throw_spritesheet.png", 156, 156, 5),
             "pick_left": self.load_animation("assets/images/enemies/Enemy1/pick_bomb_spritesheet.png", 156, 156, 4),
+            "hit_left": self.load_animation("assets/images/enemies/Enemy1/hit_spritesheet.png", 204, 168, 2),
+            "dead_left": self.load_animation("assets/images/enemies/Enemy1/dead_spritesheet.png", 204, 168, 13),
         }
 
         # Flip animations for right side
@@ -121,13 +123,14 @@ class Enemy(pygame.sprite.Sprite):
         self.animations["run_right"] = self.flip_animation("run_left")
         self.animations["throw_right"] = self.flip_animation("throw_left")
         self.animations["pick_right"] = self.flip_animation("pick_left")
+        self.animations["hit_right"] = self.flip_animation("hit_left")
+        self.animations["dead_right"] = self.flip_animation("dead_left")
 
-        # ✅ Set correct image size
+        #  Set correct image size
         self.image = self.animations["idle_left"][0]
-        self.rect = self.image.get_rect(topleft=(x, y - 20))  # ✅ Adjust starting position slightly higher
-
-        # ✅ Adjust the hitbox to match the actual character size (~126x126)
-        self.hitbox = pygame.Rect(self.rect.x + 15, self.rect.y + 15, 110, 110)  # ✅ Shrinks the hitbox properly
+        self.rect = self.image.get_rect(topleft=(x, y - 20))  #  Adjust starting position slightly higher
+        #  Adjust the hitbox to match the actual character size
+        self.hitbox = pygame.Rect(self.rect.x + 15, self.rect.y + 15, 110, 110)  #  Shrinks the hitbox properly
 
         self.speed = 2
         self.direction = 1
@@ -135,11 +138,20 @@ class Enemy(pygame.sprite.Sprite):
         self.throw_cooldown = 3500
         self.last_throw_time = 0
         self.state = "patrol"
-        self.health = 1
-        self.last_update = pygame.time.get_ticks()
+        self.health = 2
 
-        # ✅ FIX: Initialize self.current_animation
-        self.current_animation = "idle_left"  # ✅ Set default animation
+        # Timers for damage handling
+        self.invulnerable = False
+        self.invulnerable_timer = 0
+        self.invulnerable_duration = 500  # 0.5 seconds
+
+        # Death state
+        self.dying = False
+        self.death_timer = 0
+
+        self.frame_index = 0
+        self.current_animation = "idle_left"  #  Set default animation
+        self.last_update = pygame.time.get_ticks()
 
 
 
@@ -148,7 +160,7 @@ class Enemy(pygame.sprite.Sprite):
         sheet = pygame.image.load(path).convert_alpha()
         sheet_width, _ = sheet.get_size()
 
-        # ✅ **Check if spritesheet width is large enough**
+        #  **Check if spritesheet width is large enough**
         max_frames = sheet_width // frame_width  # Calculate how many full frames exist
         num_frames = min(num_frames, max_frames)  # Avoid out-of-bounds access
 
@@ -173,36 +185,38 @@ class Enemy(pygame.sprite.Sprite):
             self.frame_index = (self.frame_index + 1) % len(self.animations[self.current_animation])
             self.image = self.animations[self.current_animation][self.frame_index]
 
+
+
     def patrol(self, blocks):
         """Moves left and right, stopping if colliding with a block."""
-        original_x = self.hitbox.x  # ✅ Store original position
-        self.hitbox.x += self.direction * self.speed  # ✅ Move first
+        original_x = self.hitbox.x  #  Store original position
+        self.hitbox.x += self.direction * self.speed  #  Move first
 
-        # ✅ Check if colliding after movement
+        #  Check if colliding after movement
         for block in blocks:
             if self.hitbox.colliderect(block.rect):
-                self.hitbox.x = original_x  # ✅ Reset to previous position
-                self.direction *= -1  # ✅ Turn around
+                self.hitbox.x = original_x  #  Reset to previous position
+                self.direction *= -1  #  Turn around
                 return
 
-        # ✅ Apply movement to the main enemy rect after confirming no collision
+        #  Apply movement to the main enemy rect after confirming no collision
         self.rect.x = self.hitbox.x
 
-        # ✅ Stop at ledges
+        #  Stop at ledges
         if self.check_fall(blocks):
             self.direction *= -1
 
     def check_fall(self, blocks):
         """Detect if the enemy is about to walk off a 1-block ledge and stop."""
         next_x = self.rect.x + (self.direction * TILE_SIZE)  # Move in direction of travel
-        below_rect = pygame.Rect(next_x, self.rect.bottom, self.rect.width, 1)  # ✅ Check just 1 pixel below
+        below_rect = pygame.Rect(next_x, self.rect.bottom, self.rect.width, 1)  #  Check just 1 pixel below
 
-        # ✅ If there is NO block right below, turn around
+        #  If there is NO block right below, turn around
         for block in blocks:
-            if block.rect.colliderect(below_rect):  # ✅ Found ground directly below
+            if block.rect.colliderect(below_rect):  #  Found ground directly below
                 return False  # No fall risk
 
-        return True  # ✅ No ground → turn around
+        return True  #  No ground → turn around
 
     def throw_bomb(self, player, bombs):
         """Throws a bomb in the direction of the player and switches to pick animation."""
@@ -224,28 +238,40 @@ class Enemy(pygame.sprite.Sprite):
             bomb_y = self.rect.centery - 10
             bomb = Bomb(bomb_x, bomb_y, self.direction)
             bombs.add(bomb)
-            # ✅ After throwing, switch to "pick"
+            #  After throwing, switch to "pick"
             self.state = "pick"
 
     def update(self, player, blocks, bombs):
-        """Update enemy state based on movement and player detection."""
-        if self.health <= 0:
-            self.kill()
-            return
+        """Update enemy state while ensuring hit and death animations play properly."""
+        now = pygame.time.get_ticks()
 
+        #  If dying, play death animation fully before removing
+        if self.dying:
+            if self.frame_index >= len(self.animations["dead_left"]) - 1:
+                self.kill()  # Remove enemy after animation completes
+                return
+            self.update_animation()
+            return  #  Prevent further logic while dying
+
+        #  If hit, play hit animation before returning to normal
+        if self.invulnerable:
+            if now - self.invulnerable_timer > self.invulnerable_duration:
+                self.invulnerable = False  #  End invulnerability
+                self.set_animation("idle_right" if self.direction == 1 else "idle_left")
+            else:
+                self.update_animation()
+                return  #  Don't update movement until hit animation finishes
+
+        #  Continue enemy logic if not in hit or death state
         player_distance = abs(self.rect.centerx - player.rect.centerx)
 
         if self.state == "idle":
-            # ✅ If the cooldown has passed, start throwing again
-            if pygame.time.get_ticks() - self.last_throw_time > self.throw_cooldown:
+            if now - self.last_throw_time > self.throw_cooldown:
                 self.state = "throw"
-
-            # ✅ If the player left the detection range, return to patrol
             elif player_distance > 600:
                 self.state = "patrol"
 
         elif self.state == "patrol":
-            # ✅ If the player enters detection range, switch to "throw"
             if player_distance < 600:
                 self.state = "throw"
             else:
@@ -253,16 +279,14 @@ class Enemy(pygame.sprite.Sprite):
 
         elif self.state == "throw":
             self.throw_bomb(player, bombs)
-            # ✅ After throwing, play "pick" animation
             if self.frame_index >= len(self.animations[self.current_animation]) - 1:
                 self.state = "pick"
 
         elif self.state == "pick":
-            # ✅ After "pick", switch to "idle" instead of patrol
             if self.frame_index >= len(self.animations[self.current_animation]) - 1:
                 self.state = "idle"
 
-        # **✅ Update Animation Based on Movement**
+        #  Ensure movement animations are properly set
         if self.state == "patrol":
             self.set_animation("run_left" if self.direction == -1 else "run_right")
         elif self.state == "idle":
@@ -275,4 +299,17 @@ class Enemy(pygame.sprite.Sprite):
         self.update_animation()
 
     def take_damage(self):
+        """Reduce health and trigger hit animation, with invulnerability."""
+        if self.invulnerable or self.dying:
+            return  # Ignore damage if the enemy is already invulnerable or dying
+
         self.health -= 1
+
+        if self.health <= 0:
+            self.dying = True
+            self.death_timer = pygame.time.get_ticks()
+            self.set_animation("dead_right" if self.direction == 1 else "dead_left")
+        else:
+            self.invulnerable = True
+            self.invulnerable_timer = pygame.time.get_ticks()
+            self.set_animation("hit_right" if self.direction == 1 else "hit_left")
