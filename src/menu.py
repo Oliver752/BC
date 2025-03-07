@@ -5,11 +5,9 @@ import os
 from settings import *
 from blocks import Block
 from player import Player
-from enemy import Enemy
+from enemy import BomberPig, Pig   # Updated import: use BomberPig and Pig instead of Enemy
 from camera import Camera
 from collectables import Collectable, Heart
-
-
 
 # Helper function defined outside the class for collision detection
 def hitbox_collide(player, collectable):
@@ -145,8 +143,15 @@ class Menu:
                     heart = Heart(x, y)
                     collectables.add(heart)
                     all_sprites.add(heart)
+                # --- Enemy instantiation changes ---
                 elif tile == "E":
-                    enemy = Enemy(x, y)
+                    # Use BomberPig for tile "E" (formerly Enemy)
+                    enemy = BomberPig(x, y)
+                    enemies.add(enemy)
+                    all_sprites.add(enemy)
+                elif tile == "X":
+                    # New tile code "X" spawns the new Pig enemy.
+                    enemy = Pig(x, y)
                     enemies.add(enemy)
                     all_sprites.add(enemy)
 
@@ -161,9 +166,8 @@ class Menu:
 
     def run_level(self, all_sprites, player, blocks, collectables):
         """Runs the game level, handling updates, drawing, and interactions."""
-
         # Create enemy and bomb groups
-        enemies = [sprite for sprite in all_sprites if isinstance(sprite, Enemy)]
+        enemies = [sprite for sprite in all_sprites if isinstance(sprite, (BomberPig, Pig))]
         bombs = pygame.sprite.Group()
 
         running = True
@@ -173,62 +177,54 @@ class Menu:
                     pygame.quit()
                     sys.exit()
 
-            #  Update game objects
+            # Update game objects
             player.update(blocks, bombs, enemies)
             collectables.update()
-            bombs.update(blocks, player)  #  Ensure bombs update
+            bombs.update(blocks, player)  # Ensure bombs update
             for enemy in enemies:
-                enemy.update(player, blocks, bombs)  #  Ensure enemies throw bombs
+                # Check type to update enemy behavior accordingly.
+                if isinstance(enemy, BomberPig):
+                    enemy.update(player, blocks, bombs)
+                elif isinstance(enemy, Pig):
+                    enemy.update(player, blocks)
 
-            #  Collision detection with collectibles
+            # Collision detection with collectibles
             collected = pygame.sprite.spritecollide(player, collectables, False, collided=hitbox_collide)
             for collectible in collected:
                 if collectible.state != "disappear":
                     if isinstance(collectible, Heart):
-                        # Only collect the heart if player's health is below max.
                         if player.health < player.max_health:
                             collectible.collect()
                             player.health += 1
                     else:
-                        # For diamonds (or other collectible types)
                         collectible.collect()
                         self.diamond_count += 1
 
-            #  Update camera and draw all sprites
+            # Update camera and draw all sprites
             self.camera.update(player)
             self.screen.fill(BG_COLOR)
             for sprite in all_sprites:
                 self.screen.blit(sprite.image, self.camera.apply(sprite))
 
-            #  Draw bombs separately so they appear properly
-            #  Draw bombs separately so they appear properly
             for bomb in bombs:
                 self.screen.blit(bomb.image, self.camera.apply(bomb))
 
-
             # --- Draw HUD elements ---
-            hud_offset = 10  # 10px offset
-
-            #  Draw the healthbar at the top left
+            hud_offset = 10
             self.screen.blit(self.healthbar, (hud_offset, hud_offset))
-
-            #  Draw heart icons on top of the healthbar
             healthbar_height = self.healthbar.get_height()
             start_x = hud_offset + 51
-            start_y = hud_offset + (healthbar_height - 25) // 2  # Vertically centered in healthbar
+            start_y = hud_offset + (healthbar_height - 25) // 2
             for i in range(player.max_health):
-                heart_x = start_x + i * (32 + 1)  # Spacing between hearts
+                heart_x = start_x + i * (32 + 1)
                 if i < player.health:
                     self.screen.blit(self.hud_heart, (heart_x, start_y))
-
-            #  Draw diamond icon and count at the top right
             icon_rect = self.diamond_icon.get_rect(topright=(SCREEN_WIDTH - hud_offset, hud_offset))
             self.screen.blit(self.diamond_icon, icon_rect)
             count_text = self.font.render(str(self.diamond_count), True, (255, 255, 255))
             text_rect = count_text.get_rect(midright=(icon_rect.left - 5, icon_rect.centery))
             self.screen.blit(count_text, text_rect)
 
-            #  Render everything
             pygame.display.flip()
             self.clock.tick(FPS)
 
@@ -316,7 +312,6 @@ class Menu:
 
     def create_empty_level(self, name, width, height):
         level = [["." for _ in range(width)] for _ in range(height)]
-
         level[0] = ["G"] * width
         level[-1] = ["S"] * width
         for row in level:
@@ -329,9 +324,9 @@ class Menu:
             ".": "empty",
             "P": "player",
             "C": "collectable",
-            "E": "enemy"
+            "E": "enemy",
+            "X": "pig_enemy"
         }
-
         data = {"level": level, "tiles": tiles}
         os.makedirs('levels', exist_ok=True)
         with open(f"levels/{name}.json", 'w') as file:

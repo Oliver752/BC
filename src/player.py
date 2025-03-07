@@ -114,6 +114,27 @@ class Player(pygame.sprite.Sprite):
         else:
             return pygame.Rect(self.hitbox.left - attack_width, self.hitbox.top, attack_width, attack_height)
 
+    def take_damage(self, source=None, invuln_duration=None):
+        # Set default invulnerability duration based on damage source.
+        if invuln_duration is None:
+            invuln_duration = 1000 if source == "bomb" else 500
+        # Always apply damage when this method is called.
+        self.health -= 1
+        self.immune = True
+        self.immune_timer = pygame.time.get_ticks()
+        self.knockback = True
+        self.knockback_timer = pygame.time.get_ticks()
+        self.hurt = True
+        self.hurt_timer = pygame.time.get_ticks()
+        if self.last_direction == "right":
+            self.vel_x = -self.knockback_force_x
+            self.set_animation("hit_right")
+        else:
+            self.vel_x = self.knockback_force_x
+            self.set_animation("hit_left")
+        self.vel_y = self.knockback_force_y
+        self.immune_duration = invuln_duration
+
     def update_animation(self):
         """Update player's animation without interrupting attack, knockback, or damage animations."""
         now = pygame.time.get_ticks()
@@ -231,28 +252,11 @@ class Player(pygame.sprite.Sprite):
         self.move_and_collide(self.vel_x, self.vel_y, blocks)
 
         #  Check for bomb collisions (only on the first frame & if not immune)
+        # Check for bomb collisions (only on the first frame & if not immune)
         for bomb in bombs:
             if bomb.exploding and bomb.frame_index == 0 and self.hitbox.colliderect(bomb.explosion_rect):
-                if not self.immune:  #  Only take damage if NOT immune
-                    self.health -= 1
-                    self.immune = True
-                    self.immune_timer = pygame.time.get_ticks()
-
-                    #  Apply knockback
-                    self.knockback = True
-                    self.knockback_timer = pygame.time.get_ticks()
-
-                    #  Play the hit animation
-                    self.hurt = True
-                    self.hurt_timer = pygame.time.get_ticks()
-
-                    if self.last_direction == "right":
-                        self.vel_x = -self.knockback_force_x  # Knockback to the left
-                        self.set_animation("hit_right")  #  Play hit animation
-                    else:
-                        self.vel_x = self.knockback_force_x  # Knockback to the right
-                        self.set_animation("hit_left")  #  Play hit animation
-                    self.vel_y = self.knockback_force_y  # Apply vertical knockback
+                if not self.immune:
+                    self.take_damage(source="bomb", invuln_duration=1000)
 
         #  Reset immunity after 1 second
         if self.immune:
