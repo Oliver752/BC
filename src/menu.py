@@ -5,9 +5,10 @@ import os
 from settings import *
 from blocks import Block
 from player import Player
-from enemy import BomberPig, Pig   # Updated import: use BomberPig and Pig instead of Enemy
+from enemy import BomberPig, Pig, King
 from camera import Camera
 from collectables import Collectable, Heart
+
 
 # Helper function defined outside the class for collision detection
 def hitbox_collide(player, collectable):
@@ -38,7 +39,6 @@ class Menu:
 
         # Initialize diamond count (resets each time a level is loaded)
         self.diamond_count = 0
-
 
     def draw_menu(self):
         self.screen.fill(BG_COLOR)
@@ -144,14 +144,19 @@ class Menu:
                     collectables.add(heart)
                     all_sprites.add(heart)
                 # --- Enemy instantiation changes ---
-                elif tile == "E":
+                elif tile == "B":
                     # Use BomberPig for tile "E" (formerly Enemy)
                     enemy = BomberPig(x, y)
                     enemies.add(enemy)
                     all_sprites.add(enemy)
-                elif tile == "X":
+                elif tile == "E":
                     # New tile code "X" spawns the new Pig enemy.
                     enemy = Pig(x, y)
+                    enemies.add(enemy)
+                    all_sprites.add(enemy)
+                elif tile == "K":
+                    # New tile code "X" spawns the new Pig enemy.
+                    enemy = King(x, y)
                     enemies.add(enemy)
                     all_sprites.add(enemy)
 
@@ -167,7 +172,7 @@ class Menu:
     def run_level(self, all_sprites, player, blocks, collectables):
         """Runs the game level, handling updates, drawing, and interactions."""
         # Create enemy and bomb groups
-        enemies = [sprite for sprite in all_sprites if isinstance(sprite, (BomberPig, Pig))]
+        enemies = [sprite for sprite in all_sprites if isinstance(sprite, (BomberPig, Pig, King))]
         bombs = pygame.sprite.Group()
 
         running = True
@@ -186,6 +191,8 @@ class Menu:
                 if isinstance(enemy, BomberPig):
                     enemy.update(player, blocks, bombs)
                 elif isinstance(enemy, Pig):
+                    enemy.update(player, blocks)
+                elif isinstance(enemy, King):
                     enemy.update(player, blocks)
 
             # Collision detection with collectibles
@@ -208,6 +215,11 @@ class Menu:
 
             for bomb in bombs:
                 self.screen.blit(bomb.image, self.camera.apply(bomb))
+
+            # --- Draw debug hitboxes for Pig enemies ---
+            for enemy in enemies:
+                if isinstance(enemy, King) and getattr(enemy, "debug", False):
+                    enemy.draw_debug(self.screen, self.camera)
 
             # --- Draw HUD elements ---
             hud_offset = 10
@@ -324,8 +336,9 @@ class Menu:
             ".": "empty",
             "P": "player",
             "C": "collectable",
-            "E": "enemy",
-            "X": "pig_enemy"
+            "B": "bomber",
+            "E": "pig_enemy",
+            "K": "king_pig"
         }
         data = {"level": level, "tiles": tiles}
         os.makedirs('levels', exist_ok=True)
@@ -390,3 +403,5 @@ class Menu:
                         else:
                             print(f"Adjusting {options[selected_option]}...")
             self.clock.tick(FPS)
+
+

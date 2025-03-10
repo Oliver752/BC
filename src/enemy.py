@@ -1,7 +1,7 @@
 import pygame
 import random
+import math
 from settings import TILE_SIZE, SCREEN_WIDTH
-
 
 # ---------------------------
 # Bomb class (unchanged)
@@ -15,8 +15,8 @@ class Bomb(pygame.sprite.Sprite):
                                                   scale_factor=5)
         self.image = self.animations[0]
         self.rect = self.image.get_rect(center=(x, y))
-        self.vel_x = 8 * direction  # Increased bomb speed
-        self.vel_y = -15  # Initial upward motion
+        self.vel_x = 8 * direction
+        self.vel_y = -15
         self.gravity = 0.5
         self.exploding = False
         self.explosion_time = 0
@@ -36,7 +36,6 @@ class Bomb(pygame.sprite.Sprite):
 
     def update(self, blocks, player):
         now = pygame.time.get_ticks()
-
         if self.exploding:
             if now - self.explosion_time > 100:
                 self.explosion_time = now
@@ -52,7 +51,6 @@ class Bomb(pygame.sprite.Sprite):
             return
 
         self.vel_y += self.gravity
-
         self.rect.x += self.vel_x
         for block in blocks:
             if self.rect.colliderect(block.rect):
@@ -102,7 +100,7 @@ class BaseEnemy(pygame.sprite.Sprite):
         self.health = 2
         self.invulnerable = False
         self.invulnerable_timer = 0
-        self.invulnerable_duration = 500  # milliseconds
+        self.invulnerable_duration = 500
         self.dying = False
         self.death_timer = 0
         self.frame_index = 0
@@ -119,8 +117,10 @@ class BaseEnemy(pygame.sprite.Sprite):
         for i in range(num_frames):
             frame = sheet.subsurface(pygame.Rect(i * frame_width, 0, frame_width, frame_height))
             if scale_factor != 1:
-                frame = pygame.transform.scale(frame,
-                                               (int(frame_width * scale_factor), int(frame_height * scale_factor)))
+                frame = pygame.transform.scale(
+                    frame,
+                    (int(frame_width * scale_factor), int(frame_height * scale_factor))
+                )
             frames.append(frame)
         return frames
 
@@ -161,12 +161,11 @@ class BaseEnemy(pygame.sprite.Sprite):
 
 
 # ---------------------------
-# BomberPig class (old enemy renamed)
+# BomberPig class
 # ---------------------------
 class BomberPig(BaseEnemy):
     def __init__(self, x, y):
         super().__init__(x, y)
-        # Load animations from Enemy1 spritesheets.
         self.animations = {
             "idle_left": self.load_animation("assets/images/enemies/Enemy1/idle_spritesheet.png", 156, 156, 10),
             "run_left": self.load_animation("assets/images/enemies/Enemy1/run_spritesheet.png", 156, 156, 6),
@@ -175,7 +174,6 @@ class BomberPig(BaseEnemy):
             "hit_left": self.load_animation("assets/images/enemies/Enemy1/hit_spritesheet.png", 204, 168, 2),
             "dead_left": self.load_animation("assets/images/enemies/Enemy1/dead_spritesheet.png", 204, 168, 13),
         }
-        # Generate right-facing animations.
         self.animations["idle_right"] = self.flip_animation("idle_left")
         self.animations["run_right"] = self.flip_animation("run_left")
         self.animations["throw_right"] = self.flip_animation("throw_left")
@@ -277,59 +275,107 @@ class BomberPig(BaseEnemy):
 
 
 # ---------------------------
-# Pig class (new enemy)
+# Pig class
 # ---------------------------
 class Pig(BaseEnemy):
     def __init__(self, x, y):
         super().__init__(x, y)
-        # Load animations for Pig from Enemy2 spritesheets.
+        # --- Load animations ---
         self.animations = {
-            "idle_left": self.load_animation("assets/images/enemies/Enemy2/idle_spritesheet.png", 136, 112, 11),
-            "run_left": self.load_animation("assets/images/enemies/Enemy2/run_spritesheet.png", 136, 112, 6),
-            "jump_left": self.load_animation("assets/images/enemies/Enemy2/jump_spritesheet.png", 136, 112, 1),
-            "fall_left": self.load_animation("assets/images/enemies/Enemy2/fall_spritesheet.png", 136, 112, 1),
+            "idle_left":   self.load_animation("assets/images/enemies/Enemy2/idle_spritesheet.png", 136, 112, 11),
+            "run_left":    self.load_animation("assets/images/enemies/Enemy2/run_spritesheet.png", 136, 112, 6),
+            "jump_left":   self.load_animation("assets/images/enemies/Enemy2/jump_spritesheet.png", 136, 112, 1),
+            "fall_left":   self.load_animation("assets/images/enemies/Enemy2/fall_spritesheet.png", 136, 112, 1),
             "ground_left": self.load_animation("assets/images/enemies/Enemy2/ground_spritesheet.png", 136, 112, 1),
             "attack_left": self.load_animation("assets/images/enemies/Enemy2/attack_spritesheet.png", 136, 112, 5),
-            "hit_left": self.load_animation("assets/images/enemies/Enemy2/hit_spritesheet.png", 136, 112, 2),
-            "dead_left": self.load_animation("assets/images/enemies/Enemy2/dead_spritesheet.png", 136, 112, 11),
+            "hit_left":    self.load_animation("assets/images/enemies/Enemy2/hit_spritesheet.png", 136, 112, 2),
+            "dead_left":   self.load_animation("assets/images/enemies/Enemy2/dead_spritesheet.png", 136, 112, 11),
         }
-        # Generate right-facing animations.
-        self.animations["idle_right"] = self.flip_animation("idle_left")
-        self.animations["run_right"] = self.flip_animation("run_left")
-        self.animations["jump_right"] = self.flip_animation("jump_left")
-        self.animations["fall_right"] = self.flip_animation("fall_left")
+        # Flip for right side
+        self.animations["idle_right"]   = self.flip_animation("idle_left")
+        self.animations["run_right"]    = self.flip_animation("run_left")
+        self.animations["jump_right"]   = self.flip_animation("jump_left")
+        self.animations["fall_right"]   = self.flip_animation("fall_left")
         self.animations["ground_right"] = self.flip_animation("ground_left")
         self.animations["attack_right"] = self.flip_animation("attack_left")
-        self.animations["hit_right"] = self.flip_animation("hit_left")
-        self.animations["dead_right"] = self.flip_animation("dead_left")
+        self.animations["hit_right"]    = self.flip_animation("hit_left")
+        self.animations["dead_right"]   = self.flip_animation("dead_left")
 
-        # Adjust vertical position so the Pig's hitbox sits on top of the ground.
-        # For Pig: hitbox is defined as:
-        #   x_offset = 30, y_offset = 26, size = 76x60.
-        # We want: rect.y + 26 + 60 = y  => rect.y = y - 86.
+        # --- Position & Hitbox ---
         self.image = self.animations["idle_left"][0]
-        self.rect = self.image.get_rect(topleft=(x, y-20))
-        self.hitbox = pygame.Rect(self.rect.x + 0, self.rect.y + 26, 10, 110)
+        self.rect  = self.image.get_rect(topleft=(x, y - 20))
+        self.hitbox= pygame.Rect(self.rect.x + 15, self.rect.y + 15, 100, 100)
 
-        self.speed = 2
-        self.state = "idle"  # States: idle, chase, attack, jump, fall, ground.
-        self.attack_cooldown = 2000  # milliseconds.
+        # Movement/Physics
+        self.direction   = 1
+        self.speed       = 2
+        self.vel_y       = 0
+        self.gravity     = 0.5
+        self.jump_force  = 13
+        self.jump_cooldown  = 1000
+        self.last_jump_time  = 0
+
+        # Attack
+        self.chase_range      = 500
+        self.attack_range     = 50
+        self.attack_cooldown  = 2000
+        self.attack_duration  = 800
         self.last_attack_time = 0
-        self.jump_cooldown = 1000  # milliseconds.
-        self.last_jump_time = 0
-        self.chase_range = 500
-        self.idle_timer = random.randint(2000, 4000)
-        self.last_idle_switch = pygame.time.get_ticks()
-        self.vel_y = 0  # Vertical velocity.
-        self.last_damage_time = 0  # Timestamp for repeated damage
+        self.damage_done      = False
+
+        # States & Timers
+        self.state          = "patrol"
+        self.idle_timer     = 2000
+        self.last_idle_time = pygame.time.get_ticks()
+
+        # Landing
+        self.landed_delay = 150
+        self.landed_time  = 0
+
+        # Flip threshold
+        self.direction_threshold = 5
+
+    # Removed draw_debug from Pig
+
+    def move_and_collide(self, dx, dy, blocks):
+        # Horizontal
+        self.hitbox.x += dx
+        for block in blocks:
+            if self.hitbox.colliderect(block.rect):
+                if dx > 0:
+                    self.hitbox.right = block.rect.left
+                elif dx < 0:
+                    self.hitbox.left = block.rect.right
+        self.rect.x = self.hitbox.x - 15
+
+        # Vertical
+        self.hitbox.y += dy
+        for block in blocks:
+            if self.hitbox.colliderect(block.rect):
+                if dy > 0:
+                    self.hitbox.bottom = block.rect.top
+                    self.vel_y = 0
+                else:
+                    self.hitbox.top = block.rect.bottom
+                    self.vel_y = 0
+        self.rect.y = self.hitbox.y - 15
 
     def on_ground(self, blocks):
         test_rect = self.hitbox.copy()
         test_rect.y += 5
-        for block in blocks:
-            if block.rect.colliderect(test_rect):
-                return True
-        return False
+        return any(test_rect.colliderect(b.rect) for b in blocks)
+
+    def check_ledge(self, blocks):
+        foot_offset = 30
+        foot_width  = 20
+        foot_height = 5
+        foot_rect = pygame.Rect(
+            self.hitbox.centerx + (self.direction * foot_offset) - (foot_width // 2),
+            self.hitbox.bottom,
+            foot_width,
+            foot_height
+        )
+        return not any(foot_rect.colliderect(b.rect) for b in blocks)
 
     def update(self, player, blocks):
         now = pygame.time.get_ticks()
@@ -347,85 +393,310 @@ class Pig(BaseEnemy):
                 self.update_animation()
                 return
 
-        # Determine state based on horizontal distance to the player.
-        player_distance = abs(self.rect.centerx - player.rect.centerx)
-        if player_distance <= self.chase_range:
-            self.direction = 1 if self.rect.centerx < player.rect.centerx else -1
-            if player_distance < 50:
-                if now - self.last_attack_time > self.attack_cooldown:
-                    self.state = "attack"
-                    self.last_attack_time = now
-            else:
-                self.state = "chase"
+        if self.state == "attack":
+            self.handle_attack(player, now)
         else:
-            self.state = "idle"
-            if now - self.last_idle_switch > self.idle_timer:
-                self.direction *= -1
-                self.last_idle_switch = now
-                self.idle_timer = random.randint(2000, 4000)
+            self.handle_ai(player, now, blocks)
 
-        if self.state in ["idle", "chase"]:
-            original_x = self.hitbox.x
-            movement = self.direction * (self.speed if self.state == "chase" else self.speed * 0.5)
-            self.hitbox.x += movement
-            collision = False
-            for block in blocks:
-                if self.hitbox.colliderect(block.rect):
-                    collision = True
-                    break
-            if collision:
-                self.hitbox.x = original_x
-                # If blocked, try to jump.
-                if now - self.last_jump_time > self.jump_cooldown:
-                    self.vel_y = -10  # Adjust jump force as needed.
-                    self.last_jump_time = now
-                    self.state = "jump"
-            else:
-                self.rect.x = self.hitbox.x
+        self.vel_y += self.gravity
+        if self.vel_y > 10:
+            self.vel_y = 10
+        self.move_and_collide(0, self.vel_y, blocks)
 
-            self.set_animation("idle_left" if self.direction == -1 and self.state == "idle"
-                               else "idle_right" if self.direction == 1 and self.state == "idle"
-                               else "run_left" if self.direction == -1
-                               else "run_right")
-
-        elif self.state == "attack":
-            self.set_animation("attack_left" if self.direction == -1 else "attack_right")
-            # Apply damage repeatedly every 500ms if still colliding.
-            if self.hitbox.colliderect(player.hitbox):
-                if now - self.last_damage_time > 500:
-                    player.take_damage(source="enemy", invuln_duration=500)
-                    self.last_damage_time = now
-            else:
-                # Reset damage timer when not colliding.
-                self.last_damage_time = 0
-            if now - self.last_attack_time > self.attack_cooldown:
-                self.state = "chase"
-
-        elif self.state == "jump":
-            self.set_animation("jump_left" if self.direction == -1 else "jump_right")
-            if self.vel_y > 0:
-                self.state = "fall"
-        elif self.state == "fall":
-            self.set_animation("fall_left" if self.direction == -1 else "fall_right")
-            for block in blocks:
-                if self.hitbox.colliderect(block.rect):
-                    self.state = "ground"
-                    break
-        elif self.state == "ground":
-            self.set_animation("ground_left" if self.direction == -1 else "ground_right")
-            self.state = "chase"
-
-        # Apply gravity.
-        if not self.on_ground(blocks):
-            self.vel_y += 0.5
-            if self.vel_y > 10:
-                self.vel_y = 10
-        else:
-            self.vel_y = 0
-
-        self.hitbox.y += self.vel_y
-        self.rect.y = self.hitbox.y
-
+        self.set_proper_animation(blocks)
         self.update_animation()
 
+    def handle_attack(self, player, now):
+        if not self.damage_done and self.hitbox.colliderect(player.hitbox):
+            player.take_damage(source="enemy", invuln_duration=500)
+            self.damage_done = True
+        if now - self.last_attack_time > self.attack_duration:
+            self.state = "chase"
 
+    def handle_ai(self, player, now, blocks):
+        dx = player.rect.centerx - self.rect.centerx
+        dy = player.rect.centery - self.rect.centery
+        dist = math.hypot(dx, dy)
+        can_attack = (now - self.last_attack_time > self.attack_cooldown)
+
+        if dist < self.attack_range and can_attack:
+            self.state = "attack"
+            self.last_attack_time = now
+            self.damage_done = False
+            if abs(dx) > self.direction_threshold:
+                self.direction = 1 if dx > 0 else -1
+        elif dist < self.chase_range:
+            self.state = "chase"
+            if abs(dx) > self.direction_threshold:
+                self.direction = 1 if dx > 0 else -1
+        else:
+            if self.state not in ("patrol", "idle"):
+                self.state = "patrol"
+                self.last_idle_time = now
+            if now - self.last_idle_time > self.idle_timer:
+                self.state = "idle" if self.state == "patrol" else "patrol"
+                self.last_idle_time = now
+
+        if self.state == "patrol":
+            self.handle_movement(blocks, allow_jump=False, check_ledge=True)
+        elif self.state == "idle":
+            pass
+        elif self.state == "chase":
+            self.handle_movement(blocks, allow_jump=True, check_ledge=False)
+
+    def handle_movement(self, blocks, allow_jump, check_ledge):
+        dx = self.direction * self.speed
+        if check_ledge and self.check_ledge(blocks):
+            dx = 0
+            self.direction *= -1
+
+        old_x = self.hitbox.x
+        self.hitbox.x += dx
+        blocked = any(self.hitbox.colliderect(b.rect) for b in blocks)
+        if blocked:
+            self.hitbox.x = old_x
+            if allow_jump:
+                now = pygame.time.get_ticks()
+                if now - self.last_jump_time > self.jump_cooldown:
+                    self.vel_y = -self.jump_force
+                    self.last_jump_time = now
+            else:
+                self.direction *= -1
+        self.rect.x = self.hitbox.x - 15
+
+    def set_proper_animation(self, blocks):
+        if self.state == "attack":
+            self.set_animation("attack_left" if self.direction == -1 else "attack_right")
+            return
+        on_ground_now = self.on_ground(blocks)
+        if not on_ground_now:
+            if self.vel_y < 0:
+                self.set_animation("jump_left" if self.direction == -1 else "jump_right")
+            else:
+                self.set_animation("fall_left" if self.direction == -1 else "fall_right")
+        else:
+            if "fall" in self.current_animation:
+                self.set_animation("ground_left" if self.direction == -1 else "ground_right")
+                return
+            if self.state == "idle":
+                self.set_animation("idle_left" if self.direction == -1 else "idle_right")
+            elif self.state in ("patrol", "chase"):
+                self.set_animation("run_left" if self.direction == -1 else "run_right")
+
+
+# ---------------------------
+# King class (new enemy)
+# ---------------------------
+class King(BaseEnemy):
+    def __init__(self, x, y):
+        super().__init__(x, y)
+        # Load animations for the King (frame size 190x140).
+        self.animations = {
+            "idle_left":   self.load_animation("assets/images/enemies/Enemy3/idle_spritesheet.png",   190, 140, 12),
+            "run_left":    self.load_animation("assets/images/enemies/Enemy3/run_spritesheet.png",    190, 140, 6),
+            "jump_left":   self.load_animation("assets/images/enemies/Enemy3/jump_spritesheet.png",   190, 140, 1),
+            "fall_left":   self.load_animation("assets/images/enemies/Enemy3/fall_spritesheet.png",   190, 140, 1),
+            "ground_left": self.load_animation("assets/images/enemies/Enemy3/ground_spritesheet.png", 190, 140, 1),
+            "attack_left": self.load_animation("assets/images/enemies/Enemy3/attack_spritesheet.png", 190, 140, 5),
+            "hit_left":    self.load_animation("assets/images/enemies/Enemy3/hit_spritesheet.png",    190, 140, 2),
+            "dead_left":   self.load_animation("assets/images/enemies/Enemy3/dead_spritesheet.png",   190, 140, 11),
+        }
+        # Flip for right side
+        self.animations["idle_right"]   = self.flip_animation("idle_left")
+        self.animations["run_right"]    = self.flip_animation("run_left")
+        self.animations["jump_right"]   = self.flip_animation("jump_left")
+        self.animations["fall_right"]   = self.flip_animation("fall_left")
+        self.animations["ground_right"] = self.flip_animation("ground_left")
+        self.animations["attack_right"] = self.flip_animation("attack_left")
+        self.animations["hit_right"]    = self.flip_animation("hit_left")
+        self.animations["dead_right"]   = self.flip_animation("dead_left")
+
+        # Position & Hitbox
+        self.image = self.animations["idle_left"][0]
+        self.rect  = self.image.get_rect(topleft=(x, y - 20))
+        self.hitbox= pygame.Rect(self.rect.x + 15, self.rect.y + 15, 100, 120)
+
+        # Draw debug for King
+        self.debug       = True
+
+        # Movement/Physics
+        self.direction   = 1
+        self.speed       = 2
+        self.vel_y       = 0
+        self.gravity     = 0.5
+        self.jump_force  = 15
+        self.jump_cooldown  = 1000
+        self.last_jump_time  = 0
+
+        # Attack
+        self.health = 5
+        self.chase_range      = 500
+        self.attack_range     = 50
+        self.attack_cooldown  = 2000
+        self.attack_duration  = 800
+        self.last_attack_time = 0
+        self.damage_done      = False
+
+        # States & Timers
+        self.state          = "patrol"
+        self.idle_timer     = 2000
+        self.last_idle_time = pygame.time.get_ticks()
+
+        # Landing
+        self.landed_delay = 150
+        self.landed_time  = 0
+
+        # Flip threshold
+        self.direction_threshold = 5
+
+    def draw_debug(self, surface, camera):
+        """Draw the King's hitbox in red, offset by the camera."""
+        offset = camera.camera.topleft
+        debug_rect = self.hitbox.copy()
+        debug_rect.x += offset[0]
+        debug_rect.y += offset[1]
+        pygame.draw.rect(surface, (255, 0, 0), debug_rect, 2)
+
+    def move_and_collide(self, dx, dy, blocks):
+        self.hitbox.x += dx
+        for block in blocks:
+            if self.hitbox.colliderect(block.rect):
+                if dx > 0:
+                    self.hitbox.right = block.rect.left
+                elif dx < 0:
+                    self.hitbox.left = block.rect.right
+        self.rect.x = self.hitbox.x - 15
+
+        self.hitbox.y += dy
+        for block in blocks:
+            if self.hitbox.colliderect(block.rect):
+                if dy > 0:
+                    self.hitbox.bottom = block.rect.top
+                    self.vel_y = 0
+                else:
+                    self.hitbox.top = block.rect.bottom
+                    self.vel_y = 0
+        self.rect.y = self.hitbox.y - 15
+
+    def on_ground(self, blocks):
+        test_rect = self.hitbox.copy()
+        test_rect.y += 5
+        return any(test_rect.colliderect(b.rect) for b in blocks)
+
+    def check_ledge(self, blocks):
+        foot_offset = 30
+        foot_width  = 20
+        foot_height = 5
+        foot_rect = pygame.Rect(
+            self.hitbox.centerx + (self.direction * foot_offset) - (foot_width // 2),
+            self.hitbox.bottom,
+            foot_width,
+            foot_height
+        )
+        return not any(foot_rect.colliderect(b.rect) for b in blocks)
+
+    def update(self, player, blocks):
+        now = pygame.time.get_ticks()
+        if self.dying:
+            if self.frame_index >= len(self.animations["dead_left"]) - 1:
+                self.kill()
+                return
+            self.update_animation()
+            return
+        if self.invulnerable:
+            if now - self.invulnerable_timer > self.invulnerable_duration:
+                self.invulnerable = False
+                self.set_animation("idle_right" if self.direction == 1 else "idle_left")
+            else:
+                self.update_animation()
+                return
+
+        if self.state == "attack":
+            self.handle_attack(player, now)
+        else:
+            self.handle_ai(player, now, blocks)
+
+        self.vel_y += self.gravity
+        if self.vel_y > 10:
+            self.vel_y = 10
+        self.move_and_collide(0, self.vel_y, blocks)
+
+        self.set_proper_animation(blocks)
+        self.update_animation()
+
+    def handle_attack(self, player, now):
+        if not self.damage_done and self.hitbox.colliderect(player.hitbox):
+            player.take_damage(source="enemy", invuln_duration=500)
+            self.damage_done = True
+        if now - self.last_attack_time > self.attack_duration:
+            self.state = "chase"
+
+    def handle_ai(self, player, now, blocks):
+        dx = player.rect.centerx - self.rect.centerx
+        dy = player.rect.centery - self.rect.centery
+        dist = math.hypot(dx, dy)
+        can_attack = (now - self.last_attack_time > self.attack_cooldown)
+
+        if dist < self.attack_range and can_attack:
+            self.state = "attack"
+            self.last_attack_time = now
+            self.damage_done = False
+            if abs(dx) > self.direction_threshold:
+                self.direction = 1 if dx > 0 else -1
+        elif dist < self.chase_range:
+            self.state = "chase"
+            if abs(dx) > self.direction_threshold:
+                self.direction = 1 if dx > 0 else -1
+        else:
+            if self.state not in ("patrol", "idle"):
+                self.state = "patrol"
+                self.last_idle_time = now
+            if now - self.last_idle_time > self.idle_timer:
+                self.state = "idle" if self.state == "patrol" else "patrol"
+                self.last_idle_time = now
+
+        if self.state == "patrol":
+            self.handle_movement(blocks, allow_jump=False, check_ledge=True)
+        elif self.state == "idle":
+            pass
+        elif self.state == "chase":
+            self.handle_movement(blocks, allow_jump=True, check_ledge=False)
+
+    def handle_movement(self, blocks, allow_jump, check_ledge):
+        dx = self.direction * self.speed
+        if check_ledge and self.check_ledge(blocks):
+            dx = 0
+            self.direction *= -1
+
+        old_x = self.hitbox.x
+        self.hitbox.x += dx
+        blocked = any(self.hitbox.colliderect(b.rect) for b in blocks)
+        if blocked:
+            self.hitbox.x = old_x
+            if allow_jump:
+                now = pygame.time.get_ticks()
+                if now - self.last_jump_time > self.jump_cooldown:
+                    self.vel_y = -self.jump_force
+                    self.last_jump_time = now
+            else:
+                self.direction *= -1
+        self.rect.x = self.hitbox.x - 15
+
+    def set_proper_animation(self, blocks):
+        if self.state == "attack":
+            self.set_animation("attack_left" if self.direction == -1 else "attack_right")
+            return
+        on_ground_now = self.on_ground(blocks)
+        if not on_ground_now:
+            if self.vel_y < 0:
+                self.set_animation("jump_left" if self.direction == -1 else "jump_right")
+            else:
+                self.set_animation("fall_left" if self.direction == -1 else "fall_right")
+        else:
+            if "fall" in self.current_animation:
+                self.set_animation("ground_left" if self.direction == -1 else "ground_right")
+                return
+            if self.state == "idle":
+                self.set_animation("idle_left" if self.direction == -1 else "idle_right")
+            elif self.state in ("patrol", "chase"):
+                self.set_animation("run_left" if self.direction == -1 else "run_right")
