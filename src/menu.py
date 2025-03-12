@@ -8,13 +8,12 @@ from player import Player
 from enemy import BomberPig, Pig, King
 from camera import Camera
 from collectables import Collectable, Heart
+from level_editor import run_editor
 
 
-# Helper function defined outside the class for collision detection
+# Helper function for collision detection
 def hitbox_collide(player, collectable):
-    """Check collision between player's hitbox and collectable's rect."""
     return player.hitbox.colliderect(collectable.rect)
-
 
 class Menu:
     def __init__(self, screen):
@@ -25,20 +24,20 @@ class Menu:
         self.options = ["Play", "Sandbox", "Settings", "Quit"]
         self.selected_index = 0
 
-        # Load the diamond icon (for gem count)
+        # HUD assets
         self.diamond_icon = pygame.image.load("assets/images/hud/diamond.png").convert_alpha()
         self.diamond_icon = pygame.transform.scale(self.diamond_icon, (32, 32))
-
-        # Load and scale the healthbar image.
         self.healthbar = pygame.image.load("assets/images/hud/healthbar.png").convert_alpha()
         self.healthbar = pygame.transform.scale(self.healthbar, (198, 102))
-
-        # Load the HUD heart icon.
         self.hud_heart = pygame.image.load("assets/images/hud/heart.png").convert_alpha()
         self.hud_heart = pygame.transform.scale(self.hud_heart, (30, 25))
 
-        # Initialize diamond count (resets each time a level is loaded)
+        # Diamond count resets each level
         self.diamond_count = 0
+
+        # Track current level/folder so we can restart
+        self.current_level = None
+        self.current_folder = None
 
     def draw_menu(self):
         self.screen.fill(BG_COLOR)
@@ -52,32 +51,32 @@ class Menu:
         while True:
             self.draw_menu()
             pygame.display.flip()
-
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     pygame.quit()
                     sys.exit()
-                if event.type == pygame.KEYDOWN:
+                elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_DOWN:
                         self.selected_index = (self.selected_index + 1) % len(self.options)
                     elif event.key == pygame.K_UP:
                         self.selected_index = (self.selected_index - 1) % len(self.options)
                     elif event.key == pygame.K_RETURN:
-                        if self.options[self.selected_index] == "Play":
-                            self.level_select()
-                        elif self.options[self.selected_index] == "Sandbox":
+                        choice = self.options[self.selected_index]
+                        if choice == "Play":
+                            # Loads from levels/default
+                            self.level_select(folder="default")
+                        elif choice == "Sandbox":
                             self.sandbox_menu()
-                        elif self.options[self.selected_index] == "Settings":
+                        elif choice == "Settings":
                             self.settings_menu()
-                        elif self.options[self.selected_index] == "Quit":
+                        elif choice == "Quit":
                             pygame.quit()
                             sys.exit()
             self.clock.tick(FPS)
 
     def sandbox_menu(self):
-        options = ["Create New", "Load", "Back"]
+        options = ["Create New", "Browse Levels", "Back"]
         selected_option = 0
-
         while True:
             self.screen.fill(BG_COLOR)
             for i, option in enumerate(options):
@@ -87,33 +86,129 @@ class Menu:
                 self.screen.blit(text_surface, text_rect)
 
             pygame.display.flip()
-
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     pygame.quit()
                     sys.exit()
-                if event.type == pygame.KEYDOWN:
+                elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_DOWN:
                         selected_option = (selected_option + 1) % len(options)
                     elif event.key == pygame.K_UP:
                         selected_option = (selected_option - 1) % len(options)
                     elif event.key == pygame.K_RETURN:
-                        if options[selected_option] == "Back":
+                        choice = options[selected_option]
+                        if choice == "Back":
                             return
-                        elif options[selected_option] == "Create New":
-                            self.create_new_level()
-                        elif options[selected_option] == "Load":
-                            self.load_existing_level()
+                        elif choice == "Create New":
+                            self.create_new_level(folder="sandbox")
+                        elif choice == "Browse Levels":
+                            self.browse_levels(folder="sandbox")
             self.clock.tick(FPS)
 
-    def load_level(self, filename):
-        with open(f"levels/{filename}", 'r') as file:
+    def browse_levels(self, folder="sandbox"):
+        folder_path = os.path.join("levels", folder)
+        all_files = os.listdir(folder_path)
+        level_names = []
+        for f in all_files:
+            if f.endswith(".json"):
+                # Strip the .json extension
+                base_name = f[:-5]
+                level_names.append(base_name)
+
+        # Add a "Back" option at the bottom
+        level_names.append("Back")
+
+        if not level_names:
+            return  # or show a message, etc.
+
+        selected_index = 0
+        while True:
+            self.screen.fill(BG_COLOR)
+
+            # Draw the list of levels plus the "Back" option
+            for i, lvl in enumerate(level_names):
+                color = (255, 255, 255) if i == selected_index else (200, 200, 200)
+                text_surface = self.font.render(lvl, True, color)
+                text_rect = text_surface.get_rect(center=(SCREEN_WIDTH // 2, 200 + i * 60))
+                self.screen.blit(text_surface, text_rect)
+
+            pygame.display.flip()
+            self.clock.tick(FPS)
+
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_DOWN:
+                        selected_index = (selected_index + 1) % len(level_names)
+                    elif event.key == pygame.K_UP:
+                        selected_index = (selected_index - 1) % len(level_names)
+                    elif event.key == pygame.K_RETURN:
+                        chosen_level = level_names[selected_index]
+                        # If the user chooses "Back," return to sandbox menu
+                        if chosen_level == "Back":
+                            return
+                        else:
+                            self.sandbox_sub_menu(chosen_level, folder)
+                    elif event.key == pygame.K_ESCAPE:
+                        return
+
+    def sandbox_sub_menu(self, level_name, folder="sandbox"):
+        options = ["Play", "Edit", "Back"]
+        selected_option = 0
+        while True:
+            self.screen.fill(BG_COLOR)
+            for i, opt in enumerate(options):
+                color = (255, 255, 255) if i == selected_option else (200, 200, 200)
+                text_surface = self.font.render(opt, True, color)
+                text_rect = text_surface.get_rect(center=(SCREEN_WIDTH // 2, 300 + i * 60))
+                self.screen.blit(text_surface, text_rect)
+
+            pygame.display.flip()
+            self.clock.tick(FPS)
+
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_UP:
+                        selected_option = (selected_option - 1) % len(options)
+                    elif event.key == pygame.K_DOWN:
+                        selected_option = (selected_option + 1) % len(options)
+                    elif event.key == pygame.K_RETURN:
+                        choice = options[selected_option]
+                        if choice == "Back":
+                            return  # Go back to the list of levels
+                        elif choice == "Play":
+                            # Remember: load_level expects a .json filename
+                            self.load_level(level_name + ".json", folder=folder)
+                            return
+                        elif choice == "Edit":
+                            # Call your new level editor
+                            run_editor(self.screen, level_name, folder)
+
+                            # After editing, we can either return to this sub-menu
+                            # or go back to the browse list. Here, let's just return:
+                            return
+                    elif event.key == pygame.K_ESCAPE:
+                        return
+
+    def load_level(self, filename, folder="default"):
+        """
+        Loads the given level from either levels/default or levels/sandbox.
+        """
+        self.current_level = filename
+        self.current_folder = folder
+
+        with open(f"levels/{folder}/{filename}", 'r') as file:
             data = json.load(file)
 
         all_sprites = pygame.sprite.Group()
         blocks = pygame.sprite.Group()
         enemies = pygame.sprite.Group()
-        collectables = pygame.sprite.Group()  # Group for collectibles
+        collectables = pygame.sprite.Group()
 
         player = None
         for row_index, row in enumerate(data["level"]):
@@ -135,59 +230,71 @@ class Menu:
                     player = Player(x, y)
                     all_sprites.add(player)
                 elif tile == "C":
-                    collectable = Collectable(x, y)
-                    collectables.add(collectable)
-                    all_sprites.add(collectable)
+                    c = Collectable(x, y)
+                    collectables.add(c)
+                    all_sprites.add(c)
                 elif tile == "H":
-                    # Create a heart collectible when tile 'H' is encountered
                     heart = Heart(x, y)
                     collectables.add(heart)
                     all_sprites.add(heart)
-                # --- Enemy instantiation changes ---
                 elif tile == "B":
-                    # Use BomberPig for tile "E" (formerly Enemy)
                     enemy = BomberPig(x, y)
                     enemies.add(enemy)
                     all_sprites.add(enemy)
                 elif tile == "E":
-                    # New tile code "X" spawns the new Pig enemy.
                     enemy = Pig(x, y)
                     enemies.add(enemy)
                     all_sprites.add(enemy)
                 elif tile == "K":
-                    # New tile code "X" spawns the new Pig enemy.
                     enemy = King(x, y)
                     enemies.add(enemy)
                     all_sprites.add(enemy)
 
-        self.camera = Camera(SCREEN_WIDTH, SCREEN_HEIGHT, len(data["level"][0]) * TILE_SIZE,
-                             len(data["level"]) * TILE_SIZE)
+        # Setup camera
+        self.camera = Camera(
+            SCREEN_WIDTH, SCREEN_HEIGHT,
+            len(data["level"][0]) * TILE_SIZE,
+            len(data["level"]) * TILE_SIZE
+        )
 
-        # Reset diamond count at level load
         self.diamond_count = 0
+        self.run_level(all_sprites, player, blocks, collectables, enemies)
 
-        # Pass the collectables group to the run_level method for collision detection.
-        self.run_level(all_sprites, player, blocks, collectables)
-
-    def run_level(self, all_sprites, player, blocks, collectables):
-        """Runs the game level, handling updates, drawing, and interactions."""
-        # Create enemy and bomb groups
-        enemies = [sprite for sprite in all_sprites if isinstance(sprite, (BomberPig, Pig, King))]
+    def run_level(self, all_sprites, player, blocks, collectables, enemies):
+        """
+        Runs the game level, handling updates, drawing, interactions.
+        Press ESC for a pause menu (resume, restart, settings, leave).
+        """
         bombs = pygame.sprite.Group()
-
         running = True
+
         while running:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     pygame.quit()
                     sys.exit()
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        result = self.pause_menu()
+                        if result == "resume":
+                            pass
+                        elif result == "restart":
+                            # Reload same level
+                            self.load_level(self.current_level, folder=self.current_folder)
+                            return
+                        elif result == "settings":
+                            self.settings_menu()
+                        elif result == "leave":
+                            # leave to main menu
+                            return
 
-            # Update game objects
+            # Update
             player.update(blocks, bombs, enemies)
             collectables.update()
-            bombs.update(blocks, player)  # Ensure bombs update
+            bombs.update(blocks, player)
+
+            # Update enemies
             for enemy in enemies:
-                # Check type to update enemy behavior accordingly.
                 if isinstance(enemy, BomberPig):
                     enemy.update(player, blocks, bombs)
                 elif isinstance(enemy, Pig):
@@ -195,7 +302,7 @@ class Menu:
                 elif isinstance(enemy, King):
                     enemy.update(player, blocks)
 
-            # Collision detection with collectibles
+            # Collisions with collectibles
             collected = pygame.sprite.spritecollide(player, collectables, False, collided=hitbox_collide)
             for collectible in collected:
                 if collectible.state != "disappear":
@@ -207,21 +314,20 @@ class Menu:
                         collectible.collect()
                         self.diamond_count += 1
 
-            # Update camera and draw all sprites
+            # Camera & draw
             self.camera.update(player)
             self.screen.fill(BG_COLOR)
             for sprite in all_sprites:
                 self.screen.blit(sprite.image, self.camera.apply(sprite))
-
             for bomb in bombs:
                 self.screen.blit(bomb.image, self.camera.apply(bomb))
-
-            # --- Draw debug hitboxes for Pig enemies ---
+            """
+            # Show debug for King if desired
             for enemy in enemies:
                 if isinstance(enemy, King) and getattr(enemy, "debug", False):
                     enemy.draw_debug(self.screen, self.camera)
-
-            # --- Draw HUD elements ---
+            """
+            # HUD
             hud_offset = 10
             self.screen.blit(self.healthbar, (hud_offset, hud_offset))
             healthbar_height = self.healthbar.get_height()
@@ -231,6 +337,7 @@ class Menu:
                 heart_x = start_x + i * (32 + 1)
                 if i < player.health:
                     self.screen.blit(self.hud_heart, (heart_x, start_y))
+
             icon_rect = self.diamond_icon.get_rect(topright=(SCREEN_WIDTH - hud_offset, hud_offset))
             self.screen.blit(self.diamond_icon, icon_rect)
             count_text = self.font.render(str(self.diamond_count), True, (255, 255, 255))
@@ -240,10 +347,52 @@ class Menu:
             pygame.display.flip()
             self.clock.tick(FPS)
 
-    def level_select(self):
+    def pause_menu(self):
+        """
+        Semi-transparent overlay with:
+          - Resume
+          - Restart
+          - Settings
+          - Leave
+        Returns "resume", "restart", "settings", or "leave"
+        """
+        options = ["Resume", "Restart", "Settings", "Leave"]
+        selected_index = 0
+        paused = True
+
+        while paused:
+            # Draw a semi-transparent overlay
+            overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+            overlay.fill((100, 206, 235, 150))  # black, alpha=150
+            self.screen.blit(overlay, (0, 0))
+
+            # Draw menu options
+            for i, option in enumerate(options):
+                color = (255, 255, 255) if i == selected_index else (200, 200, 200)
+                text_surface = self.font.render(option, True, color)
+                text_rect = text_surface.get_rect(center=(SCREEN_WIDTH // 2, 300 + i * 60))
+                self.screen.blit(text_surface, text_rect)
+
+            pygame.display.flip()
+            self.clock.tick(FPS)
+
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_UP:
+                        selected_index = (selected_index - 1) % len(options)
+                    elif event.key == pygame.K_DOWN:
+                        selected_index = (selected_index + 1) % len(options)
+                    elif event.key == pygame.K_RETURN:
+                        return options[selected_index].lower()  # "resume","restart","settings","leave"
+                    elif event.key == pygame.K_ESCAPE:
+                        return "resume"
+
+    def level_select(self, folder="default"):
         levels = ["Level 1", "Back"]
         selected_level = 0
-
         while True:
             self.screen.fill(BG_COLOR)
             for i, level in enumerate(levels):
@@ -253,27 +402,29 @@ class Menu:
                 self.screen.blit(text_surface, text_rect)
 
             pygame.display.flip()
-
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     pygame.quit()
                     sys.exit()
-                if event.type == pygame.KEYDOWN:
+                elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_DOWN:
                         selected_level = (selected_level + 1) % len(levels)
                     elif event.key == pygame.K_UP:
                         selected_level = (selected_level - 1) % len(levels)
                     elif event.key == pygame.K_RETURN:
-                        if levels[selected_level] == "Back":
+                        choice = levels[selected_level]
+                        if choice == "Back":
                             return
-                        elif levels[selected_level] == "Level 1":
-                            self.load_level("level1.json")
+                        elif choice == "Level 1":
+                            # Hard-coded example, from levels/default
+                            self.load_level("level1.json", folder=folder)
+                            return
             self.clock.tick(FPS)
 
-    def create_new_level(self):
-        sizes = ["20x11", "25x14", "30x17", "35x20", "40x22"]
-        selected_size = 0
+    def create_new_level(self, folder="default"):
 
+        sizes = ["20x11", "25x14", "30x17", "35x20", "40x22", "Back"]
+        selected_size = 0
         while True:
             self.screen.fill(BG_COLOR)
             for i, size in enumerate(sizes):
@@ -283,22 +434,26 @@ class Menu:
                 self.screen.blit(text_surface, text_rect)
 
             pygame.display.flip()
+            self.clock.tick(FPS)
 
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     pygame.quit()
                     sys.exit()
-                if event.type == pygame.KEYDOWN:
+                elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_DOWN:
                         selected_size = (selected_size + 1) % len(sizes)
                     elif event.key == pygame.K_UP:
                         selected_size = (selected_size - 1) % len(sizes)
                     elif event.key == pygame.K_RETURN:
-                        width, height = map(int, sizes[selected_size].split('x'))
+                        choice = sizes[selected_size]
+                        if choice == "Back":
+                            return
+                        # Otherwise it's a size
+                        width, height = map(int, choice.split('x'))
                         name = self.get_input("Enter level name:")
-                        self.create_empty_level(name, width, height)
+                        self.create_empty_level(name, width, height, folder=folder)
                         return
-            self.clock.tick(FPS)
 
     def get_input(self, prompt):
         input_text = ""
@@ -314,7 +469,7 @@ class Menu:
                 if event.type == pygame.QUIT:
                     pygame.quit()
                     sys.exit()
-                if event.type == pygame.KEYDOWN:
+                elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_RETURN:
                         return input_text
                     elif event.key == pygame.K_BACKSPACE:
@@ -322,7 +477,7 @@ class Menu:
                     elif event.unicode.isalnum() or event.unicode in ('_', '-'):
                         input_text += event.unicode
 
-    def create_empty_level(self, name, width, height):
+    def create_empty_level(self, name, width, height, folder="default"):
         level = [["." for _ in range(width)] for _ in range(height)]
         level[0] = ["G"] * width
         level[-1] = ["S"] * width
@@ -341,15 +496,28 @@ class Menu:
             "K": "king_pig"
         }
         data = {"level": level, "tiles": tiles}
-        os.makedirs('levels', exist_ok=True)
-        with open(f"levels/{name}.json", 'w') as file:
+        os.makedirs(f'levels/{folder}', exist_ok=True)
+        with open(f"levels/{folder}/{name}.json", 'w') as file:
             json.dump(data, file, indent=4)
-        print(f"Level {name} created.")
+        print(f"Level {name} created in levels/{folder}.")
 
-    def load_existing_level(self):
-        levels = [f for f in os.listdir('levels') if f.endswith('.json')]
+    def load_existing_level(self, folder="default"):
+        """
+        Show the .json levels plus a "Back" option to return to sandbox menu.
+        """
+        path = f'levels/{folder}'
+        if not os.path.isdir(path):
+            print(f"No directory found: {path}")
+            return
+
+        levels = [f for f in os.listdir(path) if f.endswith('.json')]
+        if not levels:
+            print("No levels found in", path)
+            return
+
+        # Add a "Back" option
+        levels.append("Back")
         selected_level = 0
-
         while True:
             self.screen.fill(BG_COLOR)
             for i, level in enumerate(levels):
@@ -359,25 +527,30 @@ class Menu:
                 self.screen.blit(text_surface, text_rect)
 
             pygame.display.flip()
+            self.clock.tick(FPS)
 
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     pygame.quit()
                     sys.exit()
-                if event.type == pygame.KEYDOWN:
+                elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_DOWN:
                         selected_level = (selected_level + 1) % len(levels)
                     elif event.key == pygame.K_UP:
                         selected_level = (selected_level - 1) % len(levels)
                     elif event.key == pygame.K_RETURN:
-                        self.load_level(levels[selected_level])
+                        choice = levels[selected_level]
+                        if choice == "Back":
+                            return
+                        self.load_level(choice, folder=folder)
                         return
-            self.clock.tick(FPS)
 
     def settings_menu(self):
-        options = ["Controls", "Sound Effects Volume", "Music Volume", "Back"]
+        """
+        Basic settings menu with just a 'Back' option for now.
+        """
+        options = ["Back"]
         selected_option = 0
-
         while True:
             self.screen.fill(BG_COLOR)
             for i, option in enumerate(options):
@@ -387,21 +560,16 @@ class Menu:
                 self.screen.blit(text_surface, text_rect)
 
             pygame.display.flip()
-
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     pygame.quit()
                     sys.exit()
-                if event.type == pygame.KEYDOWN:
+                elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_DOWN:
                         selected_option = (selected_option + 1) % len(options)
                     elif event.key == pygame.K_UP:
                         selected_option = (selected_option - 1) % len(options)
                     elif event.key == pygame.K_RETURN:
-                        if options[selected_option] == "Back":
-                            return
-                        else:
-                            print(f"Adjusting {options[selected_option]}...")
+                        # Only 'Back' for now
+                        return
             self.clock.tick(FPS)
-
-

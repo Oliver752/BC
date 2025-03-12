@@ -1,7 +1,7 @@
 import pygame
 import random
 import math
-from settings import TILE_SIZE, SCREEN_WIDTH
+from settings import TILE_SIZE
 
 # ---------------------------
 # Bomb class (unchanged)
@@ -166,46 +166,69 @@ class BaseEnemy(pygame.sprite.Sprite):
 class BomberPig(BaseEnemy):
     def __init__(self, x, y):
         super().__init__(x, y)
+
+        # Load animations
         self.animations = {
-            "idle_left": self.load_animation("assets/images/enemies/Enemy1/idle_spritesheet.png", 156, 156, 10),
-            "run_left": self.load_animation("assets/images/enemies/Enemy1/run_spritesheet.png", 156, 156, 6),
+            "idle_left":  self.load_animation("assets/images/enemies/Enemy1/idle_spritesheet.png", 156, 156, 10),
+            "run_left":   self.load_animation("assets/images/enemies/Enemy1/run_spritesheet.png", 156, 156, 6),
             "throw_left": self.load_animation("assets/images/enemies/Enemy1/throw_spritesheet.png", 156, 156, 5),
-            "pick_left": self.load_animation("assets/images/enemies/Enemy1/pick_bomb_spritesheet.png", 156, 156, 4),
-            "hit_left": self.load_animation("assets/images/enemies/Enemy1/hit_spritesheet.png", 204, 168, 2),
-            "dead_left": self.load_animation("assets/images/enemies/Enemy1/dead_spritesheet.png", 204, 168, 13),
+            "pick_left":  self.load_animation("assets/images/enemies/Enemy1/pick_bomb_spritesheet.png", 156, 156, 4),
+            "hit_left":   self.load_animation("assets/images/enemies/Enemy1/hit_spritesheet.png", 204, 168, 2),
+            "dead_left":  self.load_animation("assets/images/enemies/Enemy1/dead_spritesheet.png", 204, 168, 13),
         }
-        self.animations["idle_right"] = self.flip_animation("idle_left")
-        self.animations["run_right"] = self.flip_animation("run_left")
+        self.animations["idle_right"]  = self.flip_animation("idle_left")
+        self.animations["run_right"]   = self.flip_animation("run_left")
         self.animations["throw_right"] = self.flip_animation("throw_left")
-        self.animations["pick_right"] = self.flip_animation("pick_left")
-        self.animations["hit_right"] = self.flip_animation("hit_left")
-        self.animations["dead_right"] = self.flip_animation("dead_left")
+        self.animations["pick_right"]  = self.flip_animation("pick_left")
+        self.animations["hit_right"]   = self.flip_animation("hit_left")
+        self.animations["dead_right"]  = self.flip_animation("dead_left")
 
         self.image = self.animations["idle_left"][0]
-        self.rect = self.image.get_rect(topleft=(x, y - 20))
-        self.hitbox = pygame.Rect(self.rect.x + 15, self.rect.y + 15, 110, 110)
+        self.rect  = self.image.get_rect(bottomleft=(x,y))
+        self.offset_x= 30
+        self.hitbox = pygame.Rect(self.rect.x + 30,self.rect.bottom,80,90)
 
-        self.speed = 2
-        self.idle_timer = random.randint(1000, 3000)
+        # Movement / physics
+        self.gravity = 0.5
+        self.vel_y   = 0
+        self.speed   = 2
+
+        # States
+        self.idle_timer= random.randint(1000, 3000)
         self.throw_cooldown = 3500
-        self.last_throw_time = 0
-        self.state = "patrol"
+        self.last_throw_time= 0
+        self.state= "patrol"
+
+        # New: for ledge pause
+        self.ledge_pause_time  = 1000  # 1 second
+        self.ledge_pause_start = 0
 
     def patrol(self, blocks):
+        """
+        Moves horizontally using the hitbox, but if we detect a ledge,
+        we switch to 'ledge_pause' instead of flipping immediately.
+        """
         original_x = self.hitbox.x
         self.hitbox.x += self.direction * self.speed
+        # Check horizontal collision
         for block in blocks:
             if self.hitbox.colliderect(block.rect):
                 self.hitbox.x = original_x
                 self.direction *= -1
                 return
-        self.rect.x = self.hitbox.x
+
+        # If there's a ledge, go to ledge_pause
         if self.check_fall(blocks):
-            self.direction *= -1
+            self.state = "ledge_pause"
+            self.ledge_pause_start = pygame.time.get_ticks()
 
     def check_fall(self, blocks):
-        next_x = self.rect.x + (self.direction * TILE_SIZE)
-        below_rect = pygame.Rect(next_x, self.rect.bottom, self.rect.width, 1)
+        """
+        Checks if there's ground directly below the next tile horizontally.
+        If not, returns True => a ledge.
+        """
+        next_x = self.hitbox.x + (self.direction * TILE_SIZE)
+        below_rect = pygame.Rect(next_x, self.hitbox.bottom, self.hitbox.width, 1)
         for block in blocks:
             if block.rect.colliderect(below_rect):
                 return False
@@ -229,12 +252,16 @@ class BomberPig(BaseEnemy):
 
     def update(self, player, blocks, bombs):
         now = pygame.time.get_ticks()
+
+        # Dying logic
         if self.dying:
             if self.frame_index >= len(self.animations["dead_left"]) - 1:
                 self.kill()
                 return
             self.update_animation()
             return
+
+        # Invulnerable logic
         if self.invulnerable:
             if now - self.invulnerable_timer > self.invulnerable_duration:
                 self.invulnerable = False
@@ -243,25 +270,39 @@ class BomberPig(BaseEnemy):
                 self.update_animation()
                 return
 
+        # State machine
         player_distance = abs(self.rect.centerx - player.rect.centerx)
-        if self.state == "idle":
+
+        if self.state == "ledge_pause":
+            # Just idle for 1 second, then flip direction and go back to patrol
+            self.set_animation("idle_left" if self.direction == -1 else "idle_right")
+            if now - self.ledge_pause_start >= self.ledge_pause_time:
+                self.direction *= -1
+                self.state = "patrol"
+
+        elif self.state == "idle":
             if now - self.last_throw_time > self.throw_cooldown:
                 self.state = "throw"
             elif player_distance > 600:
                 self.state = "patrol"
+
         elif self.state == "patrol":
+            # Normal patrol
             if player_distance < 600:
                 self.state = "throw"
             else:
                 self.patrol(blocks)
+
         elif self.state == "throw":
             self.throw_bomb(player, bombs)
             if self.frame_index >= len(self.animations[self.current_animation]) - 1:
                 self.state = "pick"
+
         elif self.state == "pick":
             if self.frame_index >= len(self.animations[self.current_animation]) - 1:
                 self.state = "idle"
 
+        # Choose animation if not in ledge_pause (already set above)
         if self.state == "patrol":
             self.set_animation("run_left" if self.direction == -1 else "run_right")
         elif self.state == "idle":
@@ -270,6 +311,25 @@ class BomberPig(BaseEnemy):
             self.set_animation("throw_left" if self.direction == -1 else "throw_right")
         elif self.state == "pick":
             self.set_animation("pick_left" if self.direction == -1 else "pick_right")
+
+        # Gravity / vertical collision
+        self.vel_y += self.gravity
+        if self.vel_y > 10:
+            self.vel_y = 10
+
+        self.hitbox.y += self.vel_y
+        for block in blocks:
+            if self.hitbox.colliderect(block.rect):
+                if self.vel_y > 0:
+                    self.hitbox.bottom = block.rect.top
+                    self.vel_y = 0
+                elif self.vel_y < 0:
+                    self.hitbox.top = block.rect.bottom
+                    self.vel_y = 0
+
+        # Sync sprite with hitbox
+        self.rect.bottom = self.hitbox.bottom
+        self.rect.x      = self.hitbox.x - self.offset_x
 
         self.update_animation()
 
@@ -303,7 +363,7 @@ class Pig(BaseEnemy):
 
         # --- Position & Hitbox ---
         self.image = self.animations["idle_left"][0]
-        self.rect  = self.image.get_rect(topleft=(x, y - 20))
+        self.rect  = self.image.get_rect(topleft=(x, y))
         self.hitbox= pygame.Rect(self.rect.x + 15, self.rect.y + 15, 100, 100)
 
         # Movement/Physics
@@ -513,7 +573,7 @@ class King(BaseEnemy):
 
         # Position & Hitbox
         self.image = self.animations["idle_left"][0]
-        self.rect  = self.image.get_rect(topleft=(x, y - 20))
+        self.rect  = self.image.get_rect(topleft=(x, y))
         self.hitbox= pygame.Rect(self.rect.x + 15, self.rect.y + 15, 100, 120)
 
         # Draw debug for King
@@ -549,14 +609,14 @@ class King(BaseEnemy):
         # Flip threshold
         self.direction_threshold = 5
 
+    """
     def draw_debug(self, surface, camera):
-        """Draw the King's hitbox in red, offset by the camera."""
         offset = camera.camera.topleft
         debug_rect = self.hitbox.copy()
         debug_rect.x += offset[0]
         debug_rect.y += offset[1]
         pygame.draw.rect(surface, (255, 0, 0), debug_rect, 2)
-
+    """
     def move_and_collide(self, dx, dy, blocks):
         self.hitbox.x += dx
         for block in blocks:

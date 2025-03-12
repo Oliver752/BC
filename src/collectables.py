@@ -109,17 +109,6 @@ class Heart(pygame.sprite.Sprite):
         self.rect = self.image.get_rect(center=(x + TILE_SIZE // 2, y + TILE_SIZE // 2))
 
     def load_animation(self, path, frame_width, frame_height, num_frames, scale=None, trim=(0, 0, 0, 0)):
-        """
-        Load a spritesheet and slice it into frames.
-        Parameters:
-            path: file path to the spritesheet.
-            frame_width, frame_height: dimensions of a single frame.
-            num_frames: number of frames in the animation.
-            scale: optional tuple (width, height) to scale the frames.
-            trim: optional tuple (left, top, right, bottom) to trim the frame.
-        Returns:
-            A list of pygame.Surface frames.
-        """
         sheet = pygame.image.load(path).convert_alpha()
         frames = []
         for i in range(num_frames):
