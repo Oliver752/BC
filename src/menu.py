@@ -2,6 +2,7 @@ import pygame
 import sys
 import json
 import os
+
 from settings import *
 from blocks import Block
 from player import Player
@@ -15,14 +16,22 @@ from level_editor import run_editor
 def hitbox_collide(player, collectable):
     return player.hitbox.colliderect(collectable.rect)
 
+
 class Menu:
     def __init__(self, screen):
         self.screen = screen
         self.clock = pygame.time.Clock()
         self.font = pygame.font.Font(None, 50)
         self.input_font = pygame.font.Font(None, 40)
+
+        # Default main menu options
         self.options = ["Play", "Sandbox", "Settings", "Quit"]
         self.selected_index = 0
+
+        # Load a button image for all menus
+        self.button_img = pygame.image.load("assets/images/btn/button.png").convert_alpha()
+        self.button_width = self.button_img.get_width()
+        self.button_height = self.button_img.get_height()
 
         # HUD assets
         self.diamond_icon = pygame.image.load("assets/images/hud/diamond.png").convert_alpha()
@@ -31,6 +40,11 @@ class Menu:
         self.healthbar = pygame.transform.scale(self.healthbar, (198, 102))
         self.hud_heart = pygame.image.load("assets/images/hud/heart.png").convert_alpha()
         self.hud_heart = pygame.transform.scale(self.hud_heart, (30, 25))
+        self.game_bg = pygame.image.load("assets/images/hud/gamebg.jpg").convert()
+        self.game_bg = pygame.transform.scale(self.game_bg, (SCREEN_WIDTH, SCREEN_HEIGHT))
+        self.menu_bg = pygame.image.load("assets/images/hud/menubg.jpg").convert()
+        self.menu_bg = pygame.transform.scale(self.menu_bg, (SCREEN_WIDTH, SCREEN_HEIGHT))
+        self.title_img = pygame.image.load("assets/images/hud/title.png").convert_alpha()
 
         # Diamond count resets each level
         self.diamond_count = 0
@@ -39,31 +53,56 @@ class Menu:
         self.current_level = None
         self.current_folder = None
 
-    def draw_menu(self):
-        self.screen.fill(BG_COLOR)
-        for i, option in enumerate(self.options):
-            color = (255, 255, 255) if i == self.selected_index else (200, 200, 200)
-            text_surface = self.font.render(option, True, color)
-            text_rect = text_surface.get_rect(center=(SCREEN_WIDTH // 2, 200 + i * 60))
-            self.screen.blit(text_surface, text_rect)
+    def draw_menu_buttons(self, options, selected_index, start_y=200, spacing=80):
+        """
+        Draws each option as a button image with text on top, stacked vertically.
+        :options: list of strings
+        :selected_index: which option is highlighted
+        :start_y: vertical start position
+        :spacing: vertical space between buttons
+        """
+        for i, text in enumerate(options):
+            # Button position
+            x = SCREEN_WIDTH // 2 - self.button_width // 2
+            y = start_y + i * (self.button_height + spacing)
+
+            # Draw the button image
+            rect = pygame.Rect(x, y, self.button_width, self.button_height)
+            self.screen.blit(self.button_img, rect)
+
+            # Highlight text color if this is the selected option
+            color = (128, 128, 128) if i == selected_index else (0, 0, 0)
+            surf = self.font.render(text, True, color)
+            surf_rect = surf.get_rect(center=rect.center)
+            self.screen.blit(surf, surf_rect)
 
     def main_menu(self):
+        options = ["Play", "Sandbox", "Settings", "Quit"]
+        selected = 0
         while True:
-            self.draw_menu()
+            # Blit the menu background first (if using a background image)
+            self.screen.blit(self.menu_bg, (0, 0))
+
+            # Position the title centered horizontally and 350px from the top
+            title_rect = self.title_img.get_rect(midtop=(SCREEN_WIDTH // 2, 130))
+            self.screen.blit(self.title_img, title_rect)
+
+            # Draw menu
+            self.draw_menu_buttons(options, selected, start_y=250, spacing=20)
             pygame.display.flip()
+
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     pygame.quit()
                     sys.exit()
                 elif event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_DOWN:
-                        self.selected_index = (self.selected_index + 1) % len(self.options)
-                    elif event.key == pygame.K_UP:
-                        self.selected_index = (self.selected_index - 1) % len(self.options)
+                    if event.key == pygame.K_UP:
+                        selected = (selected - 1) % len(options)
+                    elif event.key == pygame.K_DOWN:
+                        selected = (selected + 1) % len(options)
                     elif event.key == pygame.K_RETURN:
-                        choice = self.options[self.selected_index]
+                        choice = options[selected]
                         if choice == "Play":
-                            # Loads from levels/default
                             self.level_select(folder="default")
                         elif choice == "Sandbox":
                             self.sandbox_menu()
@@ -74,97 +113,47 @@ class Menu:
                             sys.exit()
             self.clock.tick(FPS)
 
-    def sandbox_menu(self):
-        options = ["Create New", "Browse Levels", "Back"]
-        selected_option = 0
-        while True:
-            self.screen.fill(BG_COLOR)
-            for i, option in enumerate(options):
-                color = (255, 255, 255) if i == selected_option else (200, 200, 200)
-                text_surface = self.font.render(option, True, color)
-                text_rect = text_surface.get_rect(center=(SCREEN_WIDTH // 2, 200 + i * 60))
-                self.screen.blit(text_surface, text_rect)
 
+    def sandbox_menu(self):
+        options = ["Create", "Browse", "Back"]
+        selected = 0
+        while True:
+            self.screen.blit(self.menu_bg, (0, 0))
+            self.draw_menu_buttons(options, selected, start_y=250, spacing=20)
             pygame.display.flip()
+
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     pygame.quit()
                     sys.exit()
                 elif event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_DOWN:
-                        selected_option = (selected_option + 1) % len(options)
-                    elif event.key == pygame.K_UP:
-                        selected_option = (selected_option - 1) % len(options)
+                    if event.key == pygame.K_UP:
+                        selected = (selected - 1) % len(options)
+                    elif event.key == pygame.K_DOWN:
+                        selected = (selected + 1) % len(options)
                     elif event.key == pygame.K_RETURN:
-                        choice = options[selected_option]
+                        choice = options[selected]
                         if choice == "Back":
                             return
-                        elif choice == "Create New":
+                        elif choice == "Create":
                             self.create_new_level(folder="sandbox")
-                        elif choice == "Browse Levels":
+                        elif choice == "Browse":
                             self.browse_levels(folder="sandbox")
             self.clock.tick(FPS)
 
     def browse_levels(self, folder="sandbox"):
         folder_path = os.path.join("levels", folder)
         all_files = os.listdir(folder_path)
-        level_names = []
-        for f in all_files:
-            if f.endswith(".json"):
-                # Strip the .json extension
-                base_name = f[:-5]
-                level_names.append(base_name)
-
+        level_names = [f[:-5] for f in all_files if f.endswith(".json")]
         # Add a "Back" option at the bottom
         level_names.append("Back")
-
         if not level_names:
             return  # or show a message, etc.
 
-        selected_index = 0
+        selected = 0
         while True:
-            self.screen.fill(BG_COLOR)
-
-            # Draw the list of levels plus the "Back" option
-            for i, lvl in enumerate(level_names):
-                color = (255, 255, 255) if i == selected_index else (200, 200, 200)
-                text_surface = self.font.render(lvl, True, color)
-                text_rect = text_surface.get_rect(center=(SCREEN_WIDTH // 2, 200 + i * 60))
-                self.screen.blit(text_surface, text_rect)
-
-            pygame.display.flip()
-            self.clock.tick(FPS)
-
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    pygame.quit()
-                    sys.exit()
-                elif event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_DOWN:
-                        selected_index = (selected_index + 1) % len(level_names)
-                    elif event.key == pygame.K_UP:
-                        selected_index = (selected_index - 1) % len(level_names)
-                    elif event.key == pygame.K_RETURN:
-                        chosen_level = level_names[selected_index]
-                        # If the user chooses "Back," return to sandbox menu
-                        if chosen_level == "Back":
-                            return
-                        else:
-                            self.sandbox_sub_menu(chosen_level, folder)
-                    elif event.key == pygame.K_ESCAPE:
-                        return
-
-    def sandbox_sub_menu(self, level_name, folder="sandbox"):
-        options = ["Play", "Edit", "Back"]
-        selected_option = 0
-        while True:
-            self.screen.fill(BG_COLOR)
-            for i, opt in enumerate(options):
-                color = (255, 255, 255) if i == selected_option else (200, 200, 200)
-                text_surface = self.font.render(opt, True, color)
-                text_rect = text_surface.get_rect(center=(SCREEN_WIDTH // 2, 300 + i * 60))
-                self.screen.blit(text_surface, text_rect)
-
+            self.screen.blit(self.menu_bg, (0, 0))
+            self.draw_menu_buttons(level_names, selected, start_y=200, spacing=20)
             pygame.display.flip()
             self.clock.tick(FPS)
 
@@ -174,23 +163,45 @@ class Menu:
                     sys.exit()
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_UP:
-                        selected_option = (selected_option - 1) % len(options)
+                        selected = (selected - 1) % len(level_names)
                     elif event.key == pygame.K_DOWN:
-                        selected_option = (selected_option + 1) % len(options)
+                        selected = (selected + 1) % len(level_names)
                     elif event.key == pygame.K_RETURN:
-                        choice = options[selected_option]
+                        chosen_level = level_names[selected]
+                        if chosen_level == "Back":
+                            return
+                        else:
+                            self.sandbox_sub_menu(chosen_level, folder)
+                    elif event.key == pygame.K_ESCAPE:
+                        return
+
+    def sandbox_sub_menu(self, level_name, folder="sandbox"):
+        options = ["Play", "Edit", "Back"]
+        selected = 0
+        while True:
+            self.screen.blit(self.menu_bg, (0, 0))
+            self.draw_menu_buttons(options, selected, start_y=300, spacing=20)
+            pygame.display.flip()
+            self.clock.tick(FPS)
+
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_UP:
+                        selected = (selected - 1) % len(options)
+                    elif event.key == pygame.K_DOWN:
+                        selected = (selected + 1) % len(options)
+                    elif event.key == pygame.K_RETURN:
+                        choice = options[selected]
                         if choice == "Back":
-                            return  # Go back to the list of levels
+                            return
                         elif choice == "Play":
-                            # Remember: load_level expects a .json filename
                             self.load_level(level_name + ".json", folder=folder)
                             return
                         elif choice == "Edit":
-                            # Call your new level editor
                             run_editor(self.screen, level_name, folder)
-
-                            # After editing, we can either return to this sub-menu
-                            # or go back to the browse list. Here, let's just return:
                             return
                     elif event.key == pygame.K_ESCAPE:
                         return
@@ -316,17 +327,12 @@ class Menu:
 
             # Camera & draw
             self.camera.update(player)
-            self.screen.fill(BG_COLOR)
+            self.screen.blit(self.game_bg, (0, 0))
             for sprite in all_sprites:
                 self.screen.blit(sprite.image, self.camera.apply(sprite))
             for bomb in bombs:
                 self.screen.blit(bomb.image, self.camera.apply(bomb))
-            """
-            # Show debug for King if desired
-            for enemy in enemies:
-                if isinstance(enemy, King) and getattr(enemy, "debug", False):
-                    enemy.draw_debug(self.screen, self.camera)
-            """
+
             # HUD
             hud_offset = 10
             self.screen.blit(self.healthbar, (hud_offset, hud_offset))
@@ -348,31 +354,18 @@ class Menu:
             self.clock.tick(FPS)
 
     def pause_menu(self):
-        """
-        Semi-transparent overlay with:
-          - Resume
-          - Restart
-          - Settings
-          - Leave
-        Returns "resume", "restart", "settings", or "leave"
-        """
         options = ["Resume", "Restart", "Settings", "Leave"]
-        selected_index = 0
+        selected = 0
         paused = True
 
         while paused:
-            # Draw a semi-transparent overlay
+            # Semi-transparent overlay
             overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
-            overlay.fill((100, 206, 235, 150))  # black, alpha=150
+            overlay.fill((100, 206, 235, 150))
             self.screen.blit(overlay, (0, 0))
 
-            # Draw menu options
-            for i, option in enumerate(options):
-                color = (255, 255, 255) if i == selected_index else (200, 200, 200)
-                text_surface = self.font.render(option, True, color)
-                text_rect = text_surface.get_rect(center=(SCREEN_WIDTH // 2, 300 + i * 60))
-                self.screen.blit(text_surface, text_rect)
-
+            # Draw menu
+            self.draw_menu_buttons(options, selected, start_y=300, spacing=20)
             pygame.display.flip()
             self.clock.tick(FPS)
 
@@ -382,37 +375,34 @@ class Menu:
                     sys.exit()
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_UP:
-                        selected_index = (selected_index - 1) % len(options)
+                        selected = (selected - 1) % len(options)
                     elif event.key == pygame.K_DOWN:
-                        selected_index = (selected_index + 1) % len(options)
+                        selected = (selected + 1) % len(options)
                     elif event.key == pygame.K_RETURN:
-                        return options[selected_index].lower()  # "resume","restart","settings","leave"
+                        return options[selected].lower()  # "resume","restart","settings","leave"
                     elif event.key == pygame.K_ESCAPE:
                         return "resume"
 
     def level_select(self, folder="default"):
+        # Example "Level 1" plus "Back"
         levels = ["Level 1", "Back"]
-        selected_level = 0
+        selected = 0
         while True:
-            self.screen.fill(BG_COLOR)
-            for i, level in enumerate(levels):
-                color = (255, 255, 255) if i == selected_level else (200, 200, 200)
-                text_surface = self.font.render(level, True, color)
-                text_rect = text_surface.get_rect(center=(SCREEN_WIDTH // 2, 200 + i * 60))
-                self.screen.blit(text_surface, text_rect)
-
+            self.screen.blit(self.menu_bg, (0, 0))
+            self.draw_menu_buttons(levels, selected, start_y=250, spacing=20)
             pygame.display.flip()
+
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     pygame.quit()
                     sys.exit()
                 elif event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_DOWN:
-                        selected_level = (selected_level + 1) % len(levels)
-                    elif event.key == pygame.K_UP:
-                        selected_level = (selected_level - 1) % len(levels)
+                    if event.key == pygame.K_UP:
+                        selected = (selected - 1) % len(levels)
+                    elif event.key == pygame.K_DOWN:
+                        selected = (selected + 1) % len(levels)
                     elif event.key == pygame.K_RETURN:
-                        choice = levels[selected_level]
+                        choice = levels[selected]
                         if choice == "Back":
                             return
                         elif choice == "Level 1":
@@ -422,43 +412,185 @@ class Menu:
             self.clock.tick(FPS)
 
     def create_new_level(self, folder="default"):
+        # Allow holding down arrow keys for continuous changes
+        pygame.key.set_repeat(200, 40)
 
-        sizes = ["20x11", "25x14", "30x17", "35x20", "40x22", "Back"]
-        selected_size = 0
+        # Load images
+        button_img = pygame.image.load("assets/images/btn/button.png").convert_alpha()  # 200x90
+        field_img = pygame.image.load("assets/images/btn/field.png").convert_alpha()  # 200x90
+        arrow_left_img = pygame.image.load("assets/images/btn/arrow_left.png").convert_alpha()
+        arrow_right_img = pygame.image.load("assets/images/btn/arrow_right.png").convert_alpha()
+
+        # Colors
+        WHITE = (255, 255, 255)
+        BLACK = (0, 0, 0)
+        GRAY = (128, 128, 128)
+        DISABLED = (70, 70, 70)
+
+        # Ranges
+        length_min, length_max = 30, 100
+        height_min, height_max = 20, 50
+
+        # State
+        length = length_min
+        height = height_min
+        name_text = ""
+
+        # Keyboard navigation items
+        items = ["length", "height", "name", "create", "back"]
+        active_index = 0
+
+        # Vertical positions (adjust as you like)
+        title_y = 80
+        length_label_y = 240
+        length_row_y = 280
+        height_label_y = 370
+        height_row_y = 320
+        name_label_y = 510
+        name_field_y = 480
+        create_btn_y = 600
+        back_btn_y = 700
+
+        # For spacing arrow left / right ~80px from center
+        ARROW_OFFSET = 80
+
+        clock = pygame.time.Clock()
+
         while True:
-            self.screen.fill(BG_COLOR)
-            for i, size in enumerate(sizes):
-                color = (255, 255, 255) if i == selected_size else (200, 200, 200)
-                text_surface = self.font.render(size, True, color)
-                text_rect = text_surface.get_rect(center=(SCREEN_WIDTH // 2, 200 + i * 60))
-                self.screen.blit(text_surface, text_rect)
+            self.screen.fill((100, 206, 235))  # BG_COLOR
+
+            # --- Title ---
+            title_surf = self.font.render("Create New Level", True, WHITE)
+            self.screen.blit(
+                title_surf,
+                title_surf.get_rect(center=(SCREEN_WIDTH // 2, title_y))
+            )
+
+            # --- LENGTH ---
+            # Label
+            length_label_color = GRAY if items[active_index] == "length" else WHITE
+            length_label_surf = self.input_font.render("Length", True, length_label_color)
+            self.screen.blit(
+                length_label_surf,
+                length_label_surf.get_rect(center=(SCREEN_WIDTH // 2, length_label_y))
+            )
+
+            # Arrows & value
+            left_rect_len = arrow_left_img.get_rect(midright=(SCREEN_WIDTH // 2 - ARROW_OFFSET, length_row_y))
+            right_rect_len = arrow_right_img.get_rect(midleft=(SCREEN_WIDTH // 2 + ARROW_OFFSET, length_row_y))
+            length_val_color = GRAY if items[active_index] == "length" else BLACK
+            length_val_surf = self.input_font.render(str(length), True, length_val_color)
+            length_val_rect = length_val_surf.get_rect(center=(SCREEN_WIDTH // 2, length_row_y))
+
+            self.screen.blit(arrow_left_img, left_rect_len)
+            self.screen.blit(length_val_surf, length_val_rect)
+            self.screen.blit(arrow_right_img, right_rect_len)
+
+            # --- HEIGHT ---
+            # Label
+            height_label_color = GRAY if items[active_index] == "height" else WHITE
+            height_label_surf = self.input_font.render("Height", True, height_label_color)
+            self.screen.blit(
+                height_label_surf,
+                height_label_surf.get_rect(center=(SCREEN_WIDTH // 2, height_label_y))
+            )
+
+            # Arrows & value (shift down)
+            left_rect_h = arrow_left_img.get_rect(midright=(SCREEN_WIDTH // 2 - ARROW_OFFSET, height_row_y))
+            left_rect_h.y += 100  # move below length row
+            right_rect_h = arrow_right_img.get_rect(midleft=(SCREEN_WIDTH // 2 + ARROW_OFFSET, height_row_y))
+            right_rect_h.y += 100
+            height_val_color = GRAY if items[active_index] == "height" else BLACK
+            height_val_surf = self.input_font.render(str(height), True, height_val_color)
+            height_val_rect = height_val_surf.get_rect(center=(SCREEN_WIDTH // 2, height_row_y + 100))
+
+            self.screen.blit(arrow_left_img, left_rect_h)
+            self.screen.blit(height_val_surf, height_val_rect)
+            self.screen.blit(arrow_right_img, right_rect_h)
+
+            # --- NAME ---
+            name_label_color = GRAY if items[active_index] == "name" else WHITE
+            name_label_surf = self.input_font.render("Name", True, name_label_color)
+            self.screen.blit(
+                name_label_surf,
+                name_label_surf.get_rect(center=(SCREEN_WIDTH // 2, name_label_y))
+            )
+
+            field_rect = field_img.get_rect(center=(SCREEN_WIDTH // 2, name_field_y))
+            field_rect.y += 100  # place below height row
+            self.screen.blit(field_img, field_rect)
+            # typed text
+            name_color = GRAY if items[active_index] == "name" else BLACK
+            name_surf = self.input_font.render(name_text, True, name_color)
+            name_surf_rect = name_surf.get_rect(center=field_rect.center)
+            # shift text a bit left
+            self.screen.blit(
+                name_surf,
+                (name_surf_rect.x - field_rect.width // 4, name_surf_rect.y)
+            )
+
+            # --- CREATE BUTTON ---
+            create_rect = button_img.get_rect(center=(SCREEN_WIDTH // 2, create_btn_y))
+            create_rect.y += 100
+            self.screen.blit(button_img, create_rect)
+            if name_text.strip():
+                create_color = GRAY if items[active_index] == "create" else BLACK
+            else:
+                create_color = DISABLED
+            create_surf = self.input_font.render("Create", True, create_color)
+            self.screen.blit(create_surf, create_surf.get_rect(center=create_rect.center))
+
+            # --- BACK BUTTON ---
+            back_rect = button_img.get_rect(center=(SCREEN_WIDTH // 2, back_btn_y))
+            back_rect.y += 100
+            self.screen.blit(button_img, back_rect)
+            back_color = GRAY if items[active_index] == "back" else BLACK
+            back_surf = self.input_font.render("Back", True, back_color)
+            self.screen.blit(back_surf, back_surf.get_rect(center=back_rect.center))
 
             pygame.display.flip()
-            self.clock.tick(FPS)
+            clock.tick(60)
 
+            # --- Events ---
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     pygame.quit()
                     sys.exit()
+
                 elif event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_DOWN:
-                        selected_size = (selected_size + 1) % len(sizes)
-                    elif event.key == pygame.K_UP:
-                        selected_size = (selected_size - 1) % len(sizes)
+                    if event.key == pygame.K_UP:
+                        active_index = (active_index - 1) % len(items)
+                    elif event.key == pygame.K_DOWN:
+                        active_index = (active_index + 1) % len(items)
                     elif event.key == pygame.K_RETURN:
-                        choice = sizes[selected_size]
-                        if choice == "Back":
+                        current_item = items[active_index]
+                        if current_item == "create" and name_text.strip():
+                            self.create_empty_level(name_text, length, height, folder=folder)
                             return
-                        # Otherwise it's a size
-                        width, height = map(int, choice.split('x'))
-                        name = self.get_input("Enter level name:")
-                        self.create_empty_level(name, width, height, folder=folder)
-                        return
+                        elif current_item == "back":
+                            return
+                    elif event.key == pygame.K_LEFT:
+                        if items[active_index] == "length":
+                            length = max(length_min, length - 1)
+                        elif items[active_index] == "height":
+                            height = max(height_min, height - 1)
+                    elif event.key == pygame.K_RIGHT:
+                        if items[active_index] == "length":
+                            length = min(length_max, length + 1)
+                        elif items[active_index] == "height":
+                            height = min(height_max, height + 1)
+                    elif event.key == pygame.K_BACKSPACE:
+                        if items[active_index] == "name":
+                            name_text = name_text[:-1]
+                    else:
+                        # Type into name field
+                        if items[active_index] == "name" and event.unicode.isprintable():
+                            name_text += event.unicode
 
     def get_input(self, prompt):
         input_text = ""
         while True:
-            self.screen.fill(BG_COLOR)
+            self.screen.blit(self.menu_bg, (0, 0))
             prompt_surface = self.input_font.render(prompt, True, (255, 255, 255))
             input_surface = self.input_font.render(input_text, True, (255, 255, 255))
             self.screen.blit(prompt_surface, (SCREEN_WIDTH // 2 - 150, SCREEN_HEIGHT // 2 - 50))
@@ -484,7 +616,7 @@ class Menu:
         for row in level:
             row[0] = "G"
             row[-1] = "G"
-        level[-3][3] = "P"
+        level[-2][3] = "P"
         tiles = {
             "G": "grass",
             "S": "stone",
@@ -519,7 +651,7 @@ class Menu:
         levels.append("Back")
         selected_level = 0
         while True:
-            self.screen.fill(BG_COLOR)
+            self.screen.blit(self.menu_bg, (0, 0))
             for i, level in enumerate(levels):
                 color = (255, 255, 255) if i == selected_level else (200, 200, 200)
                 text_surface = self.font.render(level, True, color)
@@ -546,30 +678,22 @@ class Menu:
                         return
 
     def settings_menu(self):
-        """
-        Basic settings menu with just a 'Back' option for now.
-        """
         options = ["Back"]
-        selected_option = 0
+        selected = 0
         while True:
             self.screen.fill(BG_COLOR)
-            for i, option in enumerate(options):
-                color = (255, 255, 255) if i == selected_option else (200, 200, 200)
-                text_surface = self.font.render(option, True, color)
-                text_rect = text_surface.get_rect(center=(SCREEN_WIDTH // 2, 200 + i * 60))
-                self.screen.blit(text_surface, text_rect)
-
+            self.draw_menu_buttons(options, selected, start_y=250, spacing=20)
             pygame.display.flip()
+
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     pygame.quit()
                     sys.exit()
                 elif event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_DOWN:
-                        selected_option = (selected_option + 1) % len(options)
-                    elif event.key == pygame.K_UP:
-                        selected_option = (selected_option - 1) % len(options)
+                    if event.key == pygame.K_UP or event.key == pygame.K_DOWN:
+                        # Only one option -> no effect
+                        pass
                     elif event.key == pygame.K_RETURN:
-                        # Only 'Back' for now
+                        # "Back"
                         return
             self.clock.tick(FPS)

@@ -13,9 +13,9 @@ LEVELS_FOLDER = "levels"
 # ----------------------------------------------------------------
 
 BLOCK_PALETTE = [
-    ("G", "assets/images/blocks/grass.png"),
-    ("S", "assets/images/blocks/stone.png"),
-    ("D", "assets/images/blocks/dirt.png"),
+    ("G", "assets/images/editor/grass.png"),
+    ("S", "assets/images/editor/stone.png"),
+    ("D", "assets/images/editor/dirt.png"),
     ("P", "assets/images/editor/player.png"),
     ("X", "assets/images/editor/delete.png"),
 ]
