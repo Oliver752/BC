@@ -1,5 +1,5 @@
 import pygame
-from settings import TILE_SIZE
+from settings import TILE_SIZE, EFFECTS_VOLUME  # Import EFFECTS_VOLUME for volume settings
 
 class Collectable(pygame.sprite.Sprite):
     def __init__(self, x, y):
@@ -22,6 +22,10 @@ class Collectable(pygame.sprite.Sprite):
         # Set the initial image and its rectangle (centered on the tile)
         self.image = self.animations[self.state][self.frame_index]
         self.rect = self.image.get_rect(center=(x + TILE_SIZE // 2, y + TILE_SIZE // 2))
+
+        # --- Sound for diamond collection ---
+        self.sound = pygame.mixer.Sound("assets/sounds/other/diamond.flac")
+
 
     def load_animation(self, path, frame_width, frame_height, num_frames, scale=None, trim=(0, 0, 0, 0)):
         """
@@ -75,6 +79,8 @@ class Collectable(pygame.sprite.Sprite):
         self.update_animation()
 
     def collect(self):
+        import settings
+
         """
         Trigger the collection of the diamond.
         Switches the animation state to 'disappear' and resets the frame index.
@@ -83,6 +89,9 @@ class Collectable(pygame.sprite.Sprite):
             self.state = "disappear"
             self.frame_index = 0
             self.last_update = pygame.time.get_ticks()
+            # Play the diamond collect sound
+            self.sound.set_volume(settings.EFFECTS_VOLUME / 10.0)
+            self.sound.play()
 
 
 class Heart(pygame.sprite.Sprite):
@@ -107,6 +116,10 @@ class Heart(pygame.sprite.Sprite):
         # Set the initial image and rect centered in the tile
         self.image = self.animations[self.state][self.frame_index]
         self.rect = self.image.get_rect(center=(x + TILE_SIZE // 2, y + TILE_SIZE // 2))
+
+        # --- Sound for heart (health) collection ---
+        self.sound = pygame.mixer.Sound("assets/sounds/other/health.flac")
+
 
     def load_animation(self, path, frame_width, frame_height, num_frames, scale=None, trim=(0, 0, 0, 0)):
         sheet = pygame.image.load(path).convert_alpha()
@@ -145,6 +158,8 @@ class Heart(pygame.sprite.Sprite):
         self.update_animation()
 
     def collect(self):
+        import settings
+
         """
         Trigger the collection of the heart.
         Switches to the disappearing animation.
@@ -153,4 +168,6 @@ class Heart(pygame.sprite.Sprite):
             self.state = "disappear"
             self.frame_index = 0
             self.last_update = pygame.time.get_ticks()
-
+            # Play the health collect sound
+            self.sound.set_volume(settings.EFFECTS_VOLUME / 10.0)
+            self.sound.play()

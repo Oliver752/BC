@@ -1,6 +1,5 @@
 import pygame
-from settings import TILE_SIZE
-
+from settings import TILE_SIZE, EFFECTS_VOLUME
 
 class Door(pygame.sprite.Sprite):
     def __init__(self, x, y, required_gems):
@@ -24,6 +23,11 @@ class Door(pygame.sprite.Sprite):
         self.arrow_img = pygame.image.load("assets/images/btn/arrow_down.png").convert_alpha()
         self.arrow_img = pygame.transform.scale(self.arrow_img, (50, 50))
 
+        # -------------------------------
+        # NEW: Load door opening sound
+        self.sound_open = pygame.mixer.Sound("assets/sounds/other/door.wav")
+        # -------------------------------
+
         # Initial state: "closed" then "opening" and finally "open"
         self.state = "closed"
         self.frame_index = 0
@@ -33,11 +37,15 @@ class Door(pygame.sprite.Sprite):
         self.rect = self.closed_image.get_rect(topleft=(x, y))
 
     def update(self, current_gems, player, keys):
+        import settings
         # When gems are collected, begin opening
         if self.state == "closed" and current_gems >= self.required_gems:
             self.state = "opening"
             self.frame_index = 0
             self.last_update = pygame.time.get_ticks()
+            # Play door opening sound once
+            self.sound_open.set_volume(settings.EFFECTS_VOLUME / 10.0/2)
+            self.sound_open.play()
 
         # Advance door opening animation
         if self.state == "opening":
@@ -85,4 +93,3 @@ class Door(pygame.sprite.Sprite):
             # When open, shift the arrow as needed.
             bubble_rect = self.button_img.get_rect(midbottom=(pos.centerx + 25, pos.top - 15))
             screen.blit(self.arrow_img, bubble_rect)
-

@@ -119,6 +119,12 @@ class LevelEditor:
         self.is_placing = False
         self.running = True
 
+        self.click_sound = pygame.mixer.Sound("assets/sounds/other/click.flac")
+
+    def play_click_sound(self):
+        import settings
+        self.click_sound.set_volume(settings.EFFECTS_VOLUME / 10.0)
+        self.click_sound.play()
     def draw_menu_buttons(self, options, selected_index, start_y=200, spacing=80):
         font = pygame.font.SysFont(None, 50)
         # Ensure we have a button image loaded; if not, load it.
@@ -380,18 +386,22 @@ class LevelEditor:
         unique_btn_rect = pygame.Rect(start_x + 3 * (btn_width + spacing), 10, btn_width, btn_height)
 
         if blocks_btn_rect.collidepoint(mx, my):
+            self.play_click_sound()
             self.show_blocks = not self.show_blocks
             self.show_enemies = self.show_collectables = self.show_unique = False
             return True
         if enemies_btn_rect.collidepoint(mx, my):
+            self.play_click_sound()
             self.show_enemies = not self.show_enemies
             self.show_blocks = self.show_collectables = self.show_unique = False
             return True
         if collect_btn_rect.collidepoint(mx, my):
+            self.play_click_sound()
             self.show_collectables = not self.show_collectables
             self.show_blocks = self.show_enemies = self.show_unique = False
             return True
         if unique_btn_rect.collidepoint(mx, my):
+            self.play_click_sound()
             self.show_unique = not self.show_unique
             self.show_blocks = self.show_enemies = self.show_collectables = False
             return True
@@ -424,6 +434,7 @@ class LevelEditor:
         for (code, path) in palette_items:
             rect = pygame.Rect(x_offset, y + 20, item_width, item_width)
             if rect.collidepoint(mx, my):
+                self.play_click_sound()
                 self.selected_tile_code = code
                 return
             x_offset += item_width + spacing
