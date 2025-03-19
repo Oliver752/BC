@@ -21,11 +21,15 @@ class Player(pygame.sprite.Sprite):
             "attack_right": self.load_animation("assets/images/player/attack_right_spritesheet.png", 312, 232, 3),
             "hit_left": self.load_animation("assets/images/player/hit_left_spritesheet.png", 312, 232, 4),
             "hit_right": self.load_animation("assets/images/player/hit_right_spritesheet.png", 312, 232, 4),
+            "door_in": self.load_animation("assets/images/player/door_in.png", 312, 232, 8),
+            "dead": self.load_animation("assets/images/player/dead_spritesheet.png", 312, 232, 4)
         }
 
         # Player health
-        self.health = 2
+        self.health = 3
         self.max_health = 3
+        self.dead = False
+        self.death_anim_done = False
 
         # State tracking
         self.current_animation = "idle_right"
@@ -68,6 +72,10 @@ class Player(pygame.sprite.Sprite):
         self.hurt_timer = 0
         self.hurt_duration = 600  # Adjust duration to match hit animation length
 
+        # Door entry flags
+        self.door_entry = False
+        self.door_in_anim_done = False
+
         # Animation timing
         self.last_update = pygame.time.get_ticks()
 
@@ -104,7 +112,12 @@ class Player(pygame.sprite.Sprite):
 
             self.frame_index = 0  # Ensure first frame starts
             self.image = self.animations[self.current_animation][self.frame_index]  # Force first frame
-
+    def start_door_entry(self):
+        """Trigger door entry: play door_in animation."""
+        self.door_entry = True
+        self.set_animation("door_in")
+        self.frame_index = 0
+        self.last_update = pygame.time.get_ticks()
     def attack_hitbox(self):
         attack_width = 80  # Adjust based on attack range
         attack_height = 50  # Adjust height if needed
@@ -115,30 +128,61 @@ class Player(pygame.sprite.Sprite):
             return pygame.Rect(self.hitbox.left - attack_width, self.hitbox.top, attack_width, attack_height)
 
     def take_damage(self, source=None, invuln_duration=None):
-        # Set default invulnerability duration based on damage source.
+        # If already dead, do nothing.
+        if self.dead:
+            return
+
         if invuln_duration is None:
             invuln_duration = 1000 if source == "bomb" else 500
-        # Always apply damage when this method is called.
-        self.health -= 1
-        self.immune = True
-        self.immune_timer = pygame.time.get_ticks()
-        self.knockback = True
-        self.knockback_timer = pygame.time.get_ticks()
-        self.hurt = True
-        self.hurt_timer = pygame.time.get_ticks()
-        if self.last_direction == "right":
-            self.vel_x = -self.knockback_force_x
-            self.set_animation("hit_right")
+
+        # If health is 1, then a hit causes death.
+        if self.health == 1:
+            self.health = 0
+            self.dead = True
+            self.set_animation("dead")
+            self.frame_index = 0
+            self.last_update = pygame.time.get_ticks()
+            return
         else:
-            self.vel_x = self.knockback_force_x
-            self.set_animation("hit_left")
-        self.vel_y = self.knockback_force_y
-        self.immune_duration = invuln_duration
+            self.health -= 1
+            self.immune = True
+            self.immune_timer = pygame.time.get_ticks()
+            self.knockback = True
+            self.knockback_timer = pygame.time.get_ticks()
+            self.hurt = True
+            self.hurt_timer = pygame.time.get_ticks()
+            if self.last_direction == "right":
+                self.vel_x = -self.knockback_force_x
+                self.set_animation("hit_right")
+            else:
+                self.vel_x = self.knockback_force_x
+                self.set_animation("hit_left")
+            self.vel_y = self.knockback_force_y
+            self.immune_duration = invuln_duration
 
     def update_animation(self):
         """Update player's animation without interrupting attack, knockback, or damage animations."""
         now = pygame.time.get_ticks()
-
+        # If the player is dead, update the dead animation
+        if self.dead:
+            if now - self.last_update > 100:  # adjust frame speed if needed
+                self.last_update = now
+                if self.frame_index < len(self.animations["dead"]) - 1:
+                    self.frame_index += 1
+                else:
+                    self.death_anim_done = True
+                self.image = self.animations["dead"][self.frame_index]
+            return
+        # If door entry is active, update door_in animation and mark when finished
+        if self.door_entry:
+            if now - self.last_update > 100:
+                self.last_update = now
+                if self.frame_index < len(self.animations["door_in"]) - 1:
+                    self.frame_index += 1
+                else:
+                    self.door_in_anim_done = True
+                self.image = self.animations["door_in"][self.frame_index]
+            return
         #  Ensure the hit animation plays fully before switching back
         if self.hurt:
             if now - self.hurt_timer > self.hurt_duration:
@@ -182,7 +226,9 @@ class Player(pygame.sprite.Sprite):
         """Handles movement and attack input."""
         if self.knockback:  #  Disable input during knockback
             return
-
+        # Disable input if in door entry sequence
+        if self.door_entry:
+            return
         keys = pygame.key.get_pressed()
         if not self.attacking:
             self.vel_x = 0

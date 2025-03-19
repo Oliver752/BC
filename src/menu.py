@@ -29,7 +29,7 @@ class Menu:
         self.selected_index = 0
 
         # Load a button image for all menus
-        self.button_img = pygame.image.load("assets/images/btn/button.png").convert_alpha()
+        self.button_img = pygame.image.load("assets/images/btn/button300.png").convert_alpha()
         self.button_width = self.button_img.get_width()
         self.button_height = self.button_img.get_height()
 
@@ -45,7 +45,8 @@ class Menu:
         self.menu_bg = pygame.image.load("assets/images/hud/menubg.jpg").convert()
         self.menu_bg = pygame.transform.scale(self.menu_bg, (SCREEN_WIDTH, SCREEN_HEIGHT))
         self.title_img = pygame.image.load("assets/images/hud/title.png").convert_alpha()
-
+        self.pause_bg = pygame.image.load("assets/images/hud/pausebg.png").convert()
+        self.pause_bg = pygame.transform.scale(self.pause_bg, (SCREEN_WIDTH, SCREEN_HEIGHT))
         # Diamond count resets each level
         self.diamond_count = 0
 
@@ -113,7 +114,6 @@ class Menu:
                             sys.exit()
             self.clock.tick(FPS)
 
-
     def sandbox_menu(self):
         options = ["Create", "Browse", "Back"]
         selected = 0
@@ -152,7 +152,7 @@ class Menu:
 
         selected = 0
         while True:
-            self.screen.blit(self.menu_bg, (0, 0))
+            self.screen.blit(self.pause_bg, (0, 0))
             self.draw_menu_buttons(level_names, selected, start_y=200, spacing=20)
             pygame.display.flip()
             self.clock.tick(FPS)
@@ -179,7 +179,7 @@ class Menu:
         options = ["Play", "Edit", "Back"]
         selected = 0
         while True:
-            self.screen.blit(self.menu_bg, (0, 0))
+            self.screen.blit(self.pause_bg, (0, 0))
             self.draw_menu_buttons(options, selected, start_y=300, spacing=20)
             pygame.display.flip()
             self.clock.tick(FPS)
@@ -207,9 +207,6 @@ class Menu:
                         return
 
     def load_level(self, filename, folder="default"):
-        """
-        Loads the given level from either levels/default or levels/sandbox.
-        """
         self.current_level = filename
         self.current_folder = folder
 
@@ -220,8 +217,9 @@ class Menu:
         blocks = pygame.sprite.Group()
         enemies = pygame.sprite.Group()
         collectables = pygame.sprite.Group()
-
+        door_group = pygame.sprite.Group()
         player = None
+        required_gems = sum(row.count("C") for row in data["level"])
         for row_index, row in enumerate(data["level"]):
             for col_index, tile in enumerate(row):
                 x, y = col_index * TILE_SIZE, row_index * TILE_SIZE
@@ -260,8 +258,11 @@ class Menu:
                     enemy = King(x, y)
                     enemies.add(enemy)
                     all_sprites.add(enemy)
+                elif tile == "F":
+                    from door import Door
+                    door = Door(x, y, required_gems)
+                    door_group.add(door)
 
-        # Setup camera
         self.camera = Camera(
             SCREEN_WIDTH, SCREEN_HEIGHT,
             len(data["level"][0]) * TILE_SIZE,
@@ -269,17 +270,15 @@ class Menu:
         )
 
         self.diamond_count = 0
-        self.run_level(all_sprites, player, blocks, collectables, enemies)
+        # Corrected: pass door_group as an argument
+        self.run_level(all_sprites, player, blocks, collectables, enemies, door_group)
 
-    def run_level(self, all_sprites, player, blocks, collectables, enemies):
-        """
-        Runs the game level, handling updates, drawing, interactions.
-        Press ESC for a pause menu (resume, restart, settings, leave).
-        """
+    def run_level(self, all_sprites, player, blocks, collectables, enemies, door_group):
         bombs = pygame.sprite.Group()
         running = True
 
         while running:
+            keys = pygame.key.get_pressed()
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     pygame.quit()
@@ -290,30 +289,25 @@ class Menu:
                         if result == "resume":
                             pass
                         elif result == "restart":
-                            # Reload same level
                             self.load_level(self.current_level, folder=self.current_folder)
                             return
                         elif result == "settings":
                             self.settings_menu()
                         elif result == "leave":
-                            # leave to main menu
                             return
 
-            # Update
             player.update(blocks, bombs, enemies)
             collectables.update()
             bombs.update(blocks, player)
 
             # Update enemies
             for enemy in enemies:
-                if isinstance(enemy, BomberPig):
+                if hasattr(enemy, 'throw_bomb'):
                     enemy.update(player, blocks, bombs)
-                elif isinstance(enemy, Pig):
-                    enemy.update(player, blocks)
-                elif isinstance(enemy, King):
+                else:
                     enemy.update(player, blocks)
 
-            # Collisions with collectibles
+            # Handle collisions with collectibles
             collected = pygame.sprite.spritecollide(player, collectables, False, collided=hitbox_collide)
             for collectible in collected:
                 if collectible.state != "disappear":
@@ -325,15 +319,29 @@ class Menu:
                         collectible.collect()
                         self.diamond_count += 1
 
-            # Camera & draw
+            # Update doors
+            for door in door_group:
+                door.update(self.diamond_count, player, keys)
+
+            # Update camera
             self.camera.update(player)
             self.screen.blit(self.game_bg, (0, 0))
+
+            # Draw door images first (behind player)
+            for door in door_group:
+                door.draw_image(self.screen, self.camera)
+
+            # Draw all sprites (player, blocks, etc.)
             for sprite in all_sprites:
                 self.screen.blit(sprite.image, self.camera.apply(sprite))
             for bomb in bombs:
                 self.screen.blit(bomb.image, self.camera.apply(bomb))
 
-            # HUD
+            # Draw door UI bubble on top
+            for door in door_group:
+                door.draw_ui(self.screen, self.font, self.diamond_count, self.camera)
+
+            # Draw HUD
             hud_offset = 10
             self.screen.blit(self.healthbar, (hud_offset, hud_offset))
             healthbar_height = self.healthbar.get_height()
@@ -343,7 +351,6 @@ class Menu:
                 heart_x = start_x + i * (32 + 1)
                 if i < player.health:
                     self.screen.blit(self.hud_heart, (heart_x, start_y))
-
             icon_rect = self.diamond_icon.get_rect(topright=(SCREEN_WIDTH - hud_offset, hud_offset))
             self.screen.blit(self.diamond_icon, icon_rect)
             count_text = self.font.render(str(self.diamond_count), True, (255, 255, 255))
@@ -352,6 +359,13 @@ class Menu:
 
             pygame.display.flip()
             self.clock.tick(FPS)
+            if player.dead and player.death_anim_done:
+                self.lost_menu()
+                running = False
+
+            if player.door_entry and player.door_in_anim_done:
+                self.level_complete_menu()
+                running = False
 
     def pause_menu(self):
         options = ["Resume", "Restart", "Settings", "Leave"]
@@ -360,9 +374,7 @@ class Menu:
 
         while paused:
             # Semi-transparent overlay
-            overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
-            overlay.fill((100, 206, 235, 150))
-            self.screen.blit(overlay, (0, 0))
+            self.screen.blit(self.pause_bg, (0, 0))
 
             # Draw menu
             self.draw_menu_buttons(options, selected, start_y=300, spacing=20)
@@ -382,7 +394,31 @@ class Menu:
                         return options[selected].lower()  # "resume","restart","settings","leave"
                     elif event.key == pygame.K_ESCAPE:
                         return "resume"
-
+    def level_complete_menu(self):
+        options = ["Continue", "Leave"]
+        selected = 0
+        while True:
+            self.screen.blit(self.pause_bg, (0, 0))
+            complete_text = self.font.render("You beat the level", True, (255, 255, 255))
+            self.screen.blit(complete_text, complete_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 50)))
+            self.draw_menu_buttons(options, selected, start_y=SCREEN_HEIGHT // 2)
+            pygame.display.flip()
+            self.clock.tick(FPS)
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit(); sys.exit()
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_UP:
+                        selected = (selected - 1) % len(options)
+                    elif event.key == pygame.K_DOWN:
+                        selected = (selected + 1) % len(options)
+                    elif event.key == pygame.K_RETURN:
+                        choice = options[selected]
+                        if choice == "Continue":
+                            self.level_select(folder=self.current_folder)
+                            return
+                        elif choice == "Leave":
+                            return
     def level_select(self, folder="default"):
         # Example "Level 1" plus "Back"
         levels = ["Level 1", "Back"]
@@ -457,7 +493,7 @@ class Menu:
         clock = pygame.time.Clock()
 
         while True:
-            self.screen.fill((100, 206, 235))  # BG_COLOR
+            self.screen.blit(self.pause_bg, (0, 0))
 
             # --- Title ---
             title_surf = self.font.render("Create New Level", True, WHITE)
@@ -523,11 +559,8 @@ class Menu:
             name_color = GRAY if items[active_index] == "name" else BLACK
             name_surf = self.input_font.render(name_text, True, name_color)
             name_surf_rect = name_surf.get_rect(center=field_rect.center)
-            # shift text a bit left
-            self.screen.blit(
-                name_surf,
-                (name_surf_rect.x - field_rect.width // 4, name_surf_rect.y)
-            )
+            # Draw text centered without shifting
+            self.screen.blit(name_surf, name_surf_rect)
 
             # --- CREATE BUTTON ---
             create_rect = button_img.get_rect(center=(SCREEN_WIDTH // 2, create_btn_y))
@@ -583,8 +616,8 @@ class Menu:
                         if items[active_index] == "name":
                             name_text = name_text[:-1]
                     else:
-                        # Type into name field
-                        if items[active_index] == "name" and event.unicode.isprintable():
+                        # Type into name field; limit the name to 10 characters
+                        if items[active_index] == "name" and event.unicode.isprintable() and len(name_text) < 10:
                             name_text += event.unicode
 
     def get_input(self, prompt):
@@ -617,15 +650,19 @@ class Menu:
             row[0] = "G"
             row[-1] = "G"
         level[-2][3] = "P"
-        tiles = {
+        level[-2][-3] = "F"
+        tiles= {
             "G": "grass",
             "S": "stone",
             ".": "empty",
             "P": "player",
             "C": "collectable",
             "B": "bomber",
+            "D": "dirt",
+            "H": "heart",
             "E": "pig_enemy",
-            "K": "king_pig"
+            "K": "king_pig",
+            "F": "finish"
         }
         data = {"level": level, "tiles": tiles}
         os.makedirs(f'levels/{folder}', exist_ok=True)
@@ -681,7 +718,7 @@ class Menu:
         options = ["Back"]
         selected = 0
         while True:
-            self.screen.fill(BG_COLOR)
+            self.screen.blit(self.pause_bg, (0, 0))
             self.draw_menu_buttons(options, selected, start_y=250, spacing=20)
             pygame.display.flip()
 
@@ -697,3 +734,31 @@ class Menu:
                         # "Back"
                         return
             self.clock.tick(FPS)
+
+    def lost_menu(self):
+        options = ["Restart", "Leave"]
+        selected = 0
+        while True:
+            self.screen.blit(self.pause_bg, (0, 0))
+            lost_text = self.font.render("You lost", True, (255, 255, 255))
+            self.screen.blit(lost_text, lost_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 50)))
+            self.draw_menu_buttons(options, selected, start_y=SCREEN_HEIGHT // 2)
+            pygame.display.flip()
+            self.clock.tick(FPS)
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_UP:
+                        selected = (selected - 1) % len(options)
+                    elif event.key == pygame.K_DOWN:
+                        selected = (selected + 1) % len(options)
+                    elif event.key == pygame.K_RETURN:
+                        choice = options[selected]
+                        if choice == "Restart":
+                            self.load_level(self.current_level, folder=self.current_folder)
+                            return
+                        elif choice == "Leave":
+                            return
+
