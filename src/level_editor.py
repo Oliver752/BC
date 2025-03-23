@@ -2,7 +2,7 @@ import pygame
 import os
 import json
 
-from settings import SCREEN_WIDTH, SCREEN_HEIGHT, TILE_SIZE
+from settings import SCREEN_WIDTH, SCREEN_HEIGHT, TILE_SIZE, MUSIC_VOLUME
 
 LEVELS_FOLDER = "levels"
 
@@ -145,6 +145,10 @@ class LevelEditor:
 
     def run(self):
         clock = pygame.time.Clock()
+        pygame.mixer.music.stop()  # Stop any previous music
+        pygame.mixer.music.load("assets/sounds/music/game_music.wav")
+        pygame.mixer.music.set_volume(MUSIC_VOLUME / 10.0)
+        pygame.mixer.music.play(-1)
         while self.running:
             dt = clock.tick(60)
             self.handle_events()
@@ -250,6 +254,7 @@ class LevelEditor:
                             menu_open = False
                         elif chosen == "Save and exit":
                             self.save_level()
+                            self.switch_to_menu_music()
                             menu_open = False
                             self.running = False
                     elif event.key == pygame.K_ESCAPE:
@@ -483,6 +488,12 @@ class LevelEditor:
             for c in range(self.num_cols):
                 if self.level_array[r][c] == "F":
                     self.level_array[r][c] = "."
+
+    def switch_to_menu_music(self):
+        pygame.mixer.music.stop()
+        pygame.mixer.music.load("assets/sounds/music/menu_music.wav")
+        pygame.mixer.music.set_volume(MUSIC_VOLUME / 10.0)
+        pygame.mixer.music.play(-1)
 
     def save_level(self):
         self.level_data["level"] = self.level_array

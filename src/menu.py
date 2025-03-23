@@ -78,6 +78,10 @@ class Menu:
 
     def main_menu(self):
         import settings
+        pygame.mixer.music.stop()  # Stop any previous music
+        pygame.mixer.music.load("assets/sounds/music/menu_music.wav")
+        pygame.mixer.music.set_volume(MUSIC_VOLUME / 10.0)
+        pygame.mixer.music.play(-1)  # Loop indefinitely
         options = ["Play", "Sandbox", "Settings", "Quit"]
         selected = 0
         while True:
@@ -298,6 +302,11 @@ class Menu:
     def run_level(self, all_sprites, player, blocks, collectables, enemies, door_group):
         bombs = pygame.sprite.Group()
         running = True
+        # In run_level() or run_editor() before the game loop starts:
+        pygame.mixer.music.stop()  # Stop any previous music
+        pygame.mixer.music.load("assets/sounds/music/game_music.wav")
+        pygame.mixer.music.set_volume(MUSIC_VOLUME / 10.0)
+        pygame.mixer.music.play(-1)
 
         while running:
             keys = pygame.key.get_pressed()
@@ -316,6 +325,7 @@ class Menu:
                         elif result == "settings":
                             self.settings_menu()
                         elif result == "leave":
+                            self.switch_to_menu_music()
                             return
 
             player.update(blocks, bombs, enemies)
@@ -422,6 +432,7 @@ class Menu:
                         self.menu_click.play()
                         return options[selected].lower()  # "resume","restart","settings","leave"
                     elif event.key == pygame.K_ESCAPE:
+                        self.switch_to_menu_music()
                         return "resume"
     def level_complete_menu(self):
         import settings
@@ -454,6 +465,7 @@ class Menu:
                             self.level_select(folder=self.current_folder)
                             return
                         elif choice == "Leave":
+                            self.switch_to_menu_music()
                             return
 
     def level_select(self, folder="default"):
@@ -879,17 +891,17 @@ class Menu:
                         self.menu_click.set_volume(settings.EFFECTS_VOLUME / 10.0)
                         self.menu_click.play()
                         if options[selected] == "Back":
-                            # Update the settings module global variables.
+                            # Update settings globals.
                             settings.EFFECTS_VOLUME = effects
                             settings.MUSIC_VOLUME = music
-                            # Update the volume of sound objects based on new settings.
                             new_effects_vol = effects / 10.0
-                            new_music_vol = music / 10.0
+                            new_music_vol = music / 15.0
+                            # Update persistent sound objects.
                             self.menu_select.set_volume(new_effects_vol)
                             self.menu_click.set_volume(new_effects_vol)
-                            # (Repeat for any other persistent sound objects if necessary)
+                            pygame.mixer.music.set_volume(new_music_vol)  # refresh music volume!
                             running = False
-                    elif event.key == pygame.K_ESCAPE:
+                elif event.key == pygame.K_ESCAPE:
                         running = False
 
     def lost_menu(self):
@@ -924,5 +936,11 @@ class Menu:
                             self.load_level(self.current_level, folder=self.current_folder)
                             return
                         elif choice == "Leave":
-                            return
+                            self.switch_to_menu_music()
 
+                            return
+    def switch_to_menu_music(self):
+        pygame.mixer.music.stop()
+        pygame.mixer.music.load("assets/sounds/music/menu_music.wav")
+        pygame.mixer.music.set_volume(MUSIC_VOLUME / 10.0)
+        pygame.mixer.music.play(-1)
