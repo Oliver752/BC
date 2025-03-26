@@ -48,6 +48,8 @@ class Menu:
         self.pause_bg = pygame.image.load("assets/images/hud/pausebg.png").convert()
         self.pause_bg = pygame.transform.scale(self.pause_bg, (SCREEN_WIDTH, SCREEN_HEIGHT))
         self.title_bg_img = pygame.image.load("assets/images/btn/titlebg.png").convert_alpha()
+        self.game_controls_img = pygame.image.load("assets/images/hud/game_controls.png").convert_alpha()
+        self.menu_controls_img = pygame.image.load("assets/images/hud/menu_controls.png").convert_alpha()
 
         # Diamond count resets each level
         self.diamond_count = 0
@@ -59,25 +61,21 @@ class Menu:
         # Load menu sound assets
         self.menu_select = pygame.mixer.Sound("assets/sounds/other/selection.wav")
         self.menu_click = pygame.mixer.Sound("assets/sounds/other/click.flac")
+    def draw_menu_controls(self):
+        x = SCREEN_WIDTH - 50 - self.menu_controls_img.get_width()
+        y = SCREEN_HEIGHT - 50 - self.menu_controls_img.get_height()
+        self.screen.blit(self.menu_controls_img, (x, y))
 
     def draw_title_with_bg(self, text, center_y=120):
         # Draw the background image
         title_rect = self.title_bg_img.get_rect(center=(SCREEN_WIDTH // 2, center_y))
         self.screen.blit(self.title_bg_img, title_rect)
-
         # Draw the text on top of the background
         text_surf = self.font.render(text, True, (255, 255, 255))
         text_rect = text_surf.get_rect(center=title_rect.center)
         self.screen.blit(text_surf, text_rect)
 
     def draw_menu_buttons(self, options, selected_index, start_y=200, spacing=80):
-        """
-        Draws each option as a button image with text on top, stacked vertically.
-        :options: list of strings
-        :selected_index: which option is highlighted
-        :start_y: vertical start position
-        :spacing: vertical space between buttons
-        """
         for i, text in enumerate(options):
             x = SCREEN_WIDTH // 2 - self.button_width // 2
             y = start_y + i * (self.button_height + spacing)
@@ -89,7 +87,6 @@ class Menu:
             self.screen.blit(surf, surf_rect)
 
     def display_message(self, message, duration=2):
-        """Helper to display a temporary message on screen."""
         start_time = pygame.time.get_ticks()
         while pygame.time.get_ticks() - start_time < duration * 1000:
             self.screen.fill((0, 0, 0))
@@ -99,14 +96,8 @@ class Menu:
             self.clock.tick(30)
 
     def get_input(self, prompt):
-        """
-        Displays a prompt and a text field (from field.png).
-        The user types in the field (up to 8 characters) and presses Enter to confirm.
-        """
         import sys
         input_text = ""
-
-        # Load your field image with alpha
         field_img = pygame.image.load("assets/images/btn/field.png").convert_alpha()
 
         while True:
@@ -116,13 +107,12 @@ class Menu:
             # Draw the prompt above the field
             self.draw_title_with_bg(prompt, center_y=440)
 
-
             # Draw the field image first
             field_rect = field_img.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))
             self.screen.blit(field_img, field_rect)
 
-            # Then draw the typed text on top of the field
-            text_surf = self.input_font.render(input_text, True, (0, 0, 0))  # black text
+            # draw the typed text on top of the field
+            text_surf = self.input_font.render(input_text, True, (0, 0, 0))
             text_rect = text_surf.get_rect(center=field_rect.center)
             self.screen.blit(text_surf, text_rect)
 
@@ -140,7 +130,6 @@ class Menu:
                     elif event.key == pygame.K_BACKSPACE:
                         input_text = input_text[:-1]
                     elif event.key == pygame.K_ESCAPE:
-                        # If you want ESC to just cancel and return an empty string:
                         return ""
                     else:
                         # If printable and we haven't reached 8 chars, append
@@ -148,10 +137,6 @@ class Menu:
                             input_text += event.unicode
 
     def confirm_action(self, prompt):
-        """
-        Displays a confirmation prompt with a yes/no dialog.
-        Returns True if user selects "Yes", otherwise False.
-        """
         yes_no_options = ["Yes", "No"]
         selected = 0
 
@@ -167,7 +152,7 @@ class Menu:
 
             start_y = SCREEN_HEIGHT // 2
             self.draw_menu_buttons(yes_no_options, selected, start_y=start_y, spacing=20)
-
+            self.draw_menu_controls()
             pygame.display.flip()
             self.clock.tick(FPS)
 
@@ -195,7 +180,7 @@ class Menu:
     def main_menu(self):
         pygame.mixer.music.stop()  # Stop any previous music
         pygame.mixer.music.load("assets/sounds/music/menu_music.wav")
-        pygame.mixer.music.set_volume(MUSIC_VOLUME / 10.0)
+        pygame.mixer.music.set_volume(MUSIC_VOLUME / 15.0)
         pygame.mixer.music.play(-1)  # Loop indefinitely
         options = ["Play", "Sandbox", "Settings", "Quit"]
         selected = 0
@@ -204,6 +189,7 @@ class Menu:
             title_rect = self.title_img.get_rect(midtop=(SCREEN_WIDTH // 2, 130))
             self.screen.blit(self.title_img, title_rect)
             self.draw_menu_buttons(options, selected, start_y=300, spacing=20)
+            self.draw_menu_controls()
             pygame.display.flip()
 
             for event in pygame.event.get():
@@ -243,6 +229,7 @@ class Menu:
         while True:
             self.screen.blit(self.menu_bg, (0, 0))
             self.draw_menu_buttons(levels, selected, start_y=250, spacing=20)
+            self.draw_menu_controls()
             pygame.display.flip()
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -269,32 +256,24 @@ class Menu:
             self.clock.tick(FPS)
 
     def sandbox_folder_menu(self):
-        """Folder selection for sandbox levels in a 2x2 (or more) grid with vertically stacked bottom buttons."""
         base_folder = os.path.join("levels", "sandbox")
         os.makedirs(base_folder, exist_ok=True)
-        # Ensure the folder button image is loaded
-        if not hasattr(self, "folder_btn_img"):
-            self.folder_btn_img = pygame.image.load("assets/images/btn/folder.png").convert_alpha()
 
         while True:
             # Get only directories inside levels/sandbox.
             folders = [d for d in os.listdir(base_folder) if os.path.isdir(os.path.join(base_folder, d))]
             grid_count = len(folders)
 
-            # Decide which bottom buttons to show:
             # Hide "Create New Folder" if we have >= 6 folders.
             if grid_count < 6:
                 bottom_options = ["Add Folder", "Back"]
             else:
                 bottom_options = ["Back"]
-
-            # Initial selection state:
-            # If there are folders, start in the grid zone; otherwise start at the bottom zone.
+            # If there are folders, start in the grid zone, otherwise start at the bottom zone.
             active_zone = "grid" if grid_count > 0 else "bottom"
             selected_grid_index = 0
             selected_bottom_index = 0
 
-            # Because bottom_options can have 1 or 2 items, ensure we don't pick an out-of-range index.
             bottom_options_count = len(bottom_options)
             if selected_bottom_index >= bottom_options_count:
                 selected_bottom_index = bottom_options_count - 1
@@ -307,7 +286,7 @@ class Menu:
                 if grid_count > 0:
                     spacing_x = 100
                     spacing_y = 40
-                    folder_width = 200  # folder.png is 200×160
+                    folder_width = 200
                     folder_height = 160
                     grid_total_width = 2 * folder_width + spacing_x
                     grid_left = (SCREEN_WIDTH - grid_total_width) // 2
@@ -335,8 +314,8 @@ class Menu:
                 # --- Draw Bottom Buttons (Vertical Stack) ---
                 bottom_margin = 50
                 spacing = 20
-                btn_w = self.button_width  # your standard button image width
-                btn_h = self.button_height  # your standard button image height
+                btn_w = self.button_width
+                btn_h = self.button_height
                 total_bottom_height = bottom_options_count * btn_h + (bottom_options_count - 1) * spacing
                 bottom_top = SCREEN_HEIGHT - bottom_margin - total_bottom_height
 
@@ -355,7 +334,7 @@ class Menu:
                     text_surf = self.font.render(option, True, text_color)
                     text_rect = text_surf.get_rect(center=rect.center)
                     self.screen.blit(text_surf, text_rect)
-
+                self.draw_menu_controls()
                 pygame.display.flip()
 
                 # --- Event Handling ---
@@ -365,7 +344,6 @@ class Menu:
                         sys.exit()
                     elif event.type == pygame.KEYDOWN:
                         if event.key in (pygame.K_LEFT, pygame.K_RIGHT, pygame.K_UP, pygame.K_DOWN):
-                            # Always play selection sound when navigating
                             self.menu_select.set_volume(EFFECTS_VOLUME / 10.0)
                             self.menu_select.play()
 
@@ -424,16 +402,13 @@ class Menu:
                                     break  # Refresh folder list
                                 elif choice == "Back":
                                     return
-
                 else:
                     # If we didn't break, keep going
                     continue
-
                 # If we broke out of the loop, refresh folder list
                 break
 
     def create_new_folder(self):
-        """Prompt user for a new folder name and create it under levels/sandbox."""
         folder_name = self.get_input("Enter new folder name:")
         if folder_name.strip():
             new_folder_path = os.path.join("levels", "sandbox", folder_name)
@@ -446,10 +421,6 @@ class Menu:
             self.display_message("Invalid name!")
 
     def sandbox_folder_actions(self, folder_name):
-        """
-        Present a submenu for a selected sandbox folder.
-        Options: Create Level, Browse Levels, (optionally Delete Folder if empty), Back.
-        """
         folder_path = os.path.join("levels", "sandbox", folder_name)
         while True:
             # Check for existing level files (.json) in this folder
@@ -464,6 +435,7 @@ class Menu:
                 self.draw_title_with_bg(f"Folder: {folder_name}", center_y=120)
 
                 self.draw_menu_buttons(options, selected, start_y=250, spacing=20)
+                self.draw_menu_controls()
                 pygame.display.flip()
                 for event in pygame.event.get():
                     if event.type == pygame.QUIT:
@@ -507,14 +479,6 @@ class Menu:
                 break
 
     def create_new_level(self, folder="default"):
-        """
-        Opens the level creation screen.
-        In sandbox folders, folder should be like "sandbox/FolderName".
-        """
-
-        full_folder = os.path.join("levels", folder)
-        levels_in_folder = [f for f in os.listdir(full_folder) if f.endswith(".json")]
-
         pygame.key.set_repeat(200, 40)
 
         button_img = pygame.image.load("assets/images/btn/button.png").convert_alpha()
@@ -527,8 +491,10 @@ class Menu:
         GRAY = (128, 128, 128)
         DISABLED = (70, 70, 70)
 
-        length_min, length_max = 30, 100
-        height_min, height_max = 20, 50
+        #length_min, length_max = 30, 100
+        #height_min, height_max = 20, 50
+        length_min, length_max = 0, 100
+        height_min, height_max = 0, 50
 
         length = length_min
         height = height_min
@@ -607,6 +573,7 @@ class Menu:
             back_surf = self.input_font.render("Back", True, back_color)
             self.screen.blit(back_surf, back_surf.get_rect(center=back_rect.center))
 
+            self.draw_menu_controls()
             pygame.display.flip()
             clock.tick(60)
 
@@ -651,29 +618,16 @@ class Menu:
 
     def create_empty_level(self, name, width, height, folder="default"):
         level = [["." for _ in range(width)] for _ in range(height)]
-        level[0] = ["G"] * width
-        level[-1] = ["S"] * width
+        level[0] = ["S"] * width
+        level[-1] = ["R"] * width
         for row in level:
-            row[0] = "G"
-            row[-1] = "G"
+            row[0] = "S"
+            row[-1] = "S"
         level[-2][3] = "P"
         level[-2][-3] = "F"
-        tiles = {
-            "G": "grass",
-            "S": "stone",
-            ".": "empty",
-            "P": "player",
-            "C": "collectable",
-            "B": "bomber",
-            "D": "dirt",
-            "H": "heart",
-            "E": "pig_enemy",
-            "K": "king_pig",
-            "F": "finish"
-        }
         os.makedirs(f'levels/{folder}', exist_ok=True)
         with open(f"levels/{folder}/{name}.json", 'w') as file:
-            json.dump({"level": level, "tiles": tiles}, file, indent=4)
+            json.dump({"level": level}, file, indent=4)
         print(f"Level {name} created in levels/{folder}.")
 
     def sandbox_browse_levels(self, folder):
@@ -687,6 +641,7 @@ class Menu:
             while True:
                 self.screen.blit(self.pause_bg, (0, 0))
                 self.draw_menu_buttons(levels, selected, start_y=200, spacing=20)
+                self.draw_menu_controls()
                 pygame.display.flip()
                 self.clock.tick(FPS)
 
@@ -730,6 +685,7 @@ class Menu:
         while True:
             self.screen.blit(self.pause_bg, (0, 0))
             self.draw_menu_buttons(options, selected, start_y=300, spacing=20)
+            self.draw_menu_controls()
             pygame.display.flip()
             self.clock.tick(FPS)
 
@@ -812,6 +768,43 @@ class Menu:
                     block = Block(x, y, "stone")
                     blocks.add(block)
                     all_sprites.add(block)
+
+                elif tile == "A":
+                    block = Block(x, y, "sand")
+                    blocks.add(block)
+                    all_sprites.add(block)
+                elif tile == "I":
+                    block = Block(x, y, "sand2")
+                    blocks.add(block)
+                    all_sprites.add(block)
+                elif tile == "J":
+                    block = Block(x, y, "snow")
+                    blocks.add(block)
+                    all_sprites.add(block)
+                elif tile == "L":
+                    block = Block(x, y, "snow2")
+                    blocks.add(block)
+                    all_sprites.add(block)
+                elif tile == "M":
+                    block = Block(x, y, "purple")
+                    blocks.add(block)
+                    all_sprites.add(block)
+                elif tile == "N":
+                    block = Block(x, y, "purple2")
+                    blocks.add(block)
+                    all_sprites.add(block)
+                elif tile == "O":
+                    block = Block(x, y, "dirt2")
+                    blocks.add(block)
+                    all_sprites.add(block)
+                elif tile == "Q":
+                    block = Block(x, y, "dirt3")
+                    blocks.add(block)
+                    all_sprites.add(block)
+                elif tile == "R":
+                    block = Block(x, y, "floor")
+                    blocks.add(block)
+                    all_sprites.add(block)
                 elif tile == "P":
                     player = Player(x, y)
                     all_sprites.add(player)
@@ -850,11 +843,12 @@ class Menu:
         self.run_level(all_sprites, player, blocks, collectables, enemies, door_group)
 
     def run_level(self, all_sprites, player, blocks, collectables, enemies, door_group):
+        controls_visible_until = pygame.time.get_ticks() + 10000
         bombs = pygame.sprite.Group()
         running = True
         pygame.mixer.music.stop()
         pygame.mixer.music.load("assets/sounds/music/game_music.wav")
-        pygame.mixer.music.set_volume(MUSIC_VOLUME / 10.0)
+        pygame.mixer.music.set_volume(MUSIC_VOLUME / 15.0)
         pygame.mixer.music.play(-1)
 
         while running:
@@ -926,6 +920,11 @@ class Menu:
             text_rect = count_text.get_rect(midright=(icon_rect.left - 5, icon_rect.centery))
             self.screen.blit(count_text, text_rect)
 
+            if pygame.time.get_ticks() < controls_visible_until:
+                x = SCREEN_WIDTH - 50 - self.game_controls_img.get_width()
+                y = SCREEN_HEIGHT - 50 - self.game_controls_img.get_height()
+                self.screen.blit(self.game_controls_img, (x, y))
+
             pygame.display.flip()
             self.clock.tick(FPS)
             if player.dead and player.death_anim_done:
@@ -946,6 +945,7 @@ class Menu:
             self.draw_title_with_bg("Paused", center_y=100)
 
             self.draw_menu_buttons(options, selected, start_y=300, spacing=20)
+            self.draw_menu_controls()
             pygame.display.flip()
             self.clock.tick(FPS)
 
@@ -967,7 +967,6 @@ class Menu:
                         self.menu_click.play()
                         return options[selected].lower()
                     elif event.key == pygame.K_ESCAPE:
-                        self.switch_to_menu_music()
                         return "resume"
 
     def settings_menu(self):
@@ -1039,6 +1038,7 @@ class Menu:
             back_text_rect = back_text.get_rect(center=back_rect.center)
             self.screen.blit(back_text, back_text_rect)
 
+            self.draw_menu_controls()
             pygame.display.flip()
             self.clock.tick(FPS)
 
@@ -1069,15 +1069,18 @@ class Menu:
                         self.menu_click.set_volume(settings.EFFECTS_VOLUME / 10.0)
                         self.menu_click.play()
                         if options[selected] == "Back":
-
                             settings.EFFECTS_VOLUME = effects
+                            global EFFECTS_VOLUME
+                            EFFECTS_VOLUME = settings.EFFECTS_VOLUME
                             settings.MUSIC_VOLUME = music
+                            global MUSIC_VOLUME
+                            MUSIC_VOLUME = settings.MUSIC_VOLUME
+
                             new_effects_vol = effects / 10.0
                             new_music_vol = music / 15.0
-
+                            pygame.mixer.music.set_volume(new_music_vol)
                             self.menu_select.set_volume(new_effects_vol)
                             self.menu_click.set_volume(new_effects_vol)
-                            pygame.mixer.music.set_volume(new_music_vol)  # refresh music volume
                             running = False
                     elif event.key == pygame.K_ESCAPE:
                         running = False
@@ -1086,9 +1089,9 @@ class Menu:
         selected = 0
         while True:
             self.screen.blit(self.pause_bg, (0, 0))
-            complete_text = self.font.render("You beat the level", True, (255, 255, 255))
-            self.screen.blit(complete_text, complete_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 50)))
+            self.draw_title_with_bg("You beat the level", center_y=150)
             self.draw_menu_buttons(options, selected, start_y=SCREEN_HEIGHT // 2)
+            self.draw_menu_controls()
             pygame.display.flip()
             self.clock.tick(FPS)
             for event in pygame.event.get():
@@ -1119,9 +1122,10 @@ class Menu:
         selected = 0
         while True:
             self.screen.blit(self.pause_bg, (0, 0))
-            lost_text = self.font.render("You lost", True, (255, 255, 255))
-            self.screen.blit(lost_text, lost_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 50)))
+            self.draw_title_with_bg("You lost", center_y=150)
+
             self.draw_menu_buttons(options, selected, start_y=SCREEN_HEIGHT // 2)
+            self.draw_menu_controls()
             pygame.display.flip()
             self.clock.tick(FPS)
             for event in pygame.event.get():
@@ -1151,8 +1155,5 @@ class Menu:
     def switch_to_menu_music(self):
         pygame.mixer.music.stop()
         pygame.mixer.music.load("assets/sounds/music/menu_music.wav")
-        pygame.mixer.music.set_volume(MUSIC_VOLUME / 10.0)
+        pygame.mixer.music.set_volume(MUSIC_VOLUME / 15.0)
         pygame.mixer.music.play(-1)
-
-
-

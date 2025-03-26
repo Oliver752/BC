@@ -1,8 +1,7 @@
 import pygame
 import os
 import json
-
-from settings import SCREEN_WIDTH, SCREEN_HEIGHT, TILE_SIZE, MUSIC_VOLUME
+import settings
 
 LEVELS_FOLDER = "levels"
 
@@ -12,8 +11,17 @@ LEVELS_FOLDER = "levels"
 
 BLOCK_PALETTE = [
     ("G", "assets/images/editor/grass.png"),
-    ("S", "assets/images/editor/stone.png"),
     ("D", "assets/images/editor/dirt.png"),
+    ("R", "assets/images/editor/floor.png"),
+    ("S", "assets/images/editor/stone.png"),
+    ("A", "assets/images/editor/sand.png"),
+    ("I", "assets/images/editor/sand2.png"),
+    ("J", "assets/images/editor/snow.png"),
+    ("L", "assets/images/editor/snow2.png"),
+    ("M", "assets/images/editor/purple.png"),
+    ("N", "assets/images/editor/purple2.png"),
+    ("O", "assets/images/editor/dirt2.png"),
+    ("Q", "assets/images/editor/dirt3.png"),
     ("X", "assets/images/editor/delete.png"),
 ]
 
@@ -21,11 +29,13 @@ ENEMY_PALETTE = [
     ("B", "assets/images/editor/bomber.png"),
     ("E", "assets/images/editor/pig.png"),
     ("K", "assets/images/editor/king.png"),
+    ("X", "assets/images/editor/delete.png"),
 ]
 
 COLLECTABLE_PALETTE = [
     ("C", "assets/images/editor/diamond.png"),
     ("H", "assets/images/editor/heart.png"),
+    ("X", "assets/images/editor/delete.png"),
 ]
 
 # New unique category containing the door and the player.
@@ -34,20 +44,30 @@ UNIQUE_PALETTE = [
     ("F", "assets/images/blocks/door.png")
 ]
 
-# Map tile codes -> tile images used for the actual map drawing
+# Map tile codes,used for the actual map drawing
 TILE_IMAGE_PATHS = {
     ".": None,
     "G": "assets/images/blocks/grass.png",
-    "S": "assets/images/blocks/stone.png",
     "D": "assets/images/blocks/dirt.png",
-    "P": "assets/images/editor/player.png",   # Unique category
+    "R": "assets/images/blocks/floor.png",
+    "S": "assets/images/blocks/stone.png",
+    "A": "assets/images/blocks/sand.png",
+    "I": "assets/images/blocks/sand2.png",
+    "J": "assets/images/blocks/snow.png",
+    "L": "assets/images/blocks/snow2.png",
+    "M": "assets/images/blocks/purple.png",
+    "N": "assets/images/blocks/purple2.png",
+    "O": "assets/images/blocks/dirt2.png",
+    "Q": "assets/images/blocks/dirt3.png",
+    "P": "assets/images/editor/player.png",
     "B": "assets/images/editor/bomber.png",
     "E": "assets/images/editor/pig.png",
     "K": "assets/images/editor/king.png",
     "C": "assets/images/editor/diamond.png",
     "H": "assets/images/editor/heart.png",
-    "F": "assets/images/blocks/door.png"        # Finish door
+    "F": "assets/images/blocks/door.png"
 }
+
 
 def load_level_data(filepath):
     with open(filepath, "r") as f:
@@ -79,7 +99,7 @@ class LevelEditor:
         self.level_data = level_data
         self.original_data = original_data
         self.pause_bg = pygame.image.load("assets/images/hud/pausebg.png").convert()
-        self.pause_bg = pygame.transform.scale(self.pause_bg, (SCREEN_WIDTH, SCREEN_HEIGHT))
+        self.pause_bg = pygame.transform.scale(self.pause_bg, (settings.SCREEN_WIDTH, settings.SCREEN_HEIGHT))
 
         self.level_array = self.level_data["level"]
         self.num_rows = len(self.level_array)
@@ -96,7 +116,9 @@ class LevelEditor:
 
         # Load palette icons for the HUD
         self.palette_images = {}
-        for (code, path) in BLOCK_PALETTE + ENEMY_PALETTE + COLLECTABLE_PALETTE + UNIQUE_PALETTE:
+        for (code, path) in (
+            BLOCK_PALETTE + ENEMY_PALETTE + COLLECTABLE_PALETTE + UNIQUE_PALETTE
+        ):
             if code not in self.palette_images:
                 self.palette_images[code] = pygame.image.load(path).convert_alpha()
 
@@ -121,10 +143,24 @@ class LevelEditor:
 
         self.click_sound = pygame.mixer.Sound("assets/sounds/other/click.flac")
 
+        # --- ADDED FOR MOUSE ANIMATION ---
+        # Prepare animation frames for the HUD mouse sprite
+        self.mouse_frames = []
+        self.current_mouse_frame = 0
+        self.mouse_anim_speed = 200  # ms per frame
+        self.mouse_anim_timer = 0
+
+        self.load_mouse_animation(
+            "assets/images/hud/mouse.png",  # path to your sprite sheet
+            9                               # total frames
+        )
+        # ---------------------------------
+
     def play_click_sound(self):
         import settings
         self.click_sound.set_volume(settings.EFFECTS_VOLUME / 10.0)
         self.click_sound.play()
+
     def draw_menu_buttons(self, options, selected_index, start_y=200, spacing=80):
         font = pygame.font.SysFont(None, 50)
         # Ensure we have a button image loaded; if not, load it.
@@ -133,7 +169,7 @@ class LevelEditor:
         btn_width = self.button_img.get_width()
         btn_height = self.button_img.get_height()
         for i, text in enumerate(options):
-            x = SCREEN_WIDTH // 2 - btn_width // 2
+            x = settings.SCREEN_WIDTH // 2 - btn_width // 2
             y = start_y + i * (btn_height + spacing)
             rect = pygame.Rect(x, y, btn_width, btn_height)
             self.screen.blit(self.button_img, rect)
@@ -143,16 +179,35 @@ class LevelEditor:
             surf_rect = surf.get_rect(center=rect.center)
             self.screen.blit(surf, surf_rect)
 
+    # --- ADDED FOR MOUSE ANIMATION ---
+    def load_mouse_animation(self, path, num_frames):
+        """
+        Assumes the sprite sheet is 9 frames wide, each 100x215.
+        The total image size would be 900x215 if horizontally laid out.
+        """
+        sheet = pygame.image.load(path).convert_alpha()
+        frame_width = 50
+        frame_height = 100
+        for i in range(num_frames):
+            # Create a surface for one frame
+            frame = pygame.Surface((frame_width, frame_height), pygame.SRCALPHA)
+            # Blit from the sheet
+            frame.blit(sheet, (0, 0), (i * frame_width, 0, frame_width, frame_height))
+            self.mouse_frames.append(frame)
+    # ---------------------------------
+
     def run(self):
         clock = pygame.time.Clock()
         pygame.mixer.music.stop()  # Stop any previous music
         pygame.mixer.music.load("assets/sounds/music/game_music.wav")
-        pygame.mixer.music.set_volume(MUSIC_VOLUME / 10.0)
+        pygame.mixer.music.set_volume(settings.MUSIC_VOLUME / 15.0)
         pygame.mixer.music.play(-1)
+
+        # Main loop
         while self.running:
-            dt = clock.tick(60)
+            dt = clock.tick(60)  # time in ms since last frame
             self.handle_events()
-            self.update()
+            self.update(dt)
             self.draw()
             pygame.display.flip()
 
@@ -185,10 +240,12 @@ class LevelEditor:
                     self.is_placing = False
 
             elif event.type == pygame.MOUSEMOTION:
-                if pygame.mouse.get_pressed()[2]:  # right button drag => pan camera
+                # Right button drag => pan camera
+                if pygame.mouse.get_pressed()[2]:
                     rel = event.rel
                     self.camera_x -= rel[0]
                     self.camera_y -= rel[1]
+                # Left button drag => place tile continuously
                 if self.is_placing and pygame.mouse.get_pressed()[0]:
                     mx, my = pygame.mouse.get_pos()
                     self.place_tile(mx, my)
@@ -260,24 +317,34 @@ class LevelEditor:
                     elif event.key == pygame.K_ESCAPE:
                         menu_open = False
 
-    def update(self):
-        display_tile_size = TILE_SIZE * self.zoom
+    def update(self, dt):
+        # --- ADDED FOR MOUSE ANIMATION ---
+        # Update the mouse animation timer
+        self.mouse_anim_timer += dt
+        if self.mouse_anim_timer >= self.mouse_anim_speed:
+            self.mouse_anim_timer = 0
+            self.current_mouse_frame = (self.current_mouse_frame + 1) % len(self.mouse_frames)
+        # ---------------------------------
+
+        display_tile_size = settings.TILE_SIZE * self.zoom
         map_pix_w = self.num_cols * display_tile_size
         map_pix_h = self.num_rows * display_tile_size
 
-        if map_pix_w < SCREEN_WIDTH:
+        # Keep camera in bounds horizontally
+        if map_pix_w < settings.SCREEN_WIDTH:
             self.camera_x = 0
         else:
-            max_x = map_pix_w - SCREEN_WIDTH
+            max_x = map_pix_w - settings.SCREEN_WIDTH
             if self.camera_x < 0:
                 self.camera_x = 0
             elif self.camera_x > max_x:
                 self.camera_x = max_x
 
-        if map_pix_h < SCREEN_HEIGHT:
+        # Keep camera in bounds vertically
+        if map_pix_h < settings.SCREEN_HEIGHT:
             self.camera_y = 0
         else:
-            max_y = map_pix_h - SCREEN_HEIGHT
+            max_y = map_pix_h - settings.SCREEN_HEIGHT
             if self.camera_y < 0:
                 self.camera_y = 0
             elif self.camera_y > max_y:
@@ -289,8 +356,12 @@ class LevelEditor:
         self.draw_grid()
         self.draw_hud()
 
+        # --- ADDED FOR MOUSE ANIMATION ---
+        self.draw_mouse_animation()
+        # ---------------------------------
+
     def draw_level(self):
-        display_tile_size = int(TILE_SIZE * self.zoom)
+        display_tile_size = int(settings.TILE_SIZE * self.zoom)
         for row in range(self.num_rows):
             for col in range(self.num_cols):
                 tile_code = self.level_array[row][col]
@@ -305,24 +376,24 @@ class LevelEditor:
                 self.screen.blit(scaled_img, (screen_x, screen_y))
 
     def draw_grid(self):
-        display_tile_size = int(TILE_SIZE * self.zoom)
+        display_tile_size = int(settings.TILE_SIZE * self.zoom)
         grid_color = (200, 200, 200)
         for r in range(self.num_rows + 1):
             y = r * display_tile_size - self.camera_y
-            pygame.draw.line(self.screen, grid_color, (0, y), (SCREEN_WIDTH, y), 1)
+            pygame.draw.line(self.screen, grid_color, (0, y), (settings.SCREEN_WIDTH, y), 1)
         for c in range(self.num_cols + 1):
             x = c * display_tile_size - self.camera_x
-            pygame.draw.line(self.screen, grid_color, (x, 0), (x, SCREEN_HEIGHT), 1)
+            pygame.draw.line(self.screen, grid_color, (x, 0), (x, settings.SCREEN_HEIGHT), 1)
 
     def draw_hud(self):
         top_bar_height = 50
-        pygame.draw.rect(self.screen, (50, 50, 50), (0, 0, SCREEN_WIDTH, top_bar_height))
+        pygame.draw.rect(self.screen, (50, 50, 50), (0, 0, settings.SCREEN_WIDTH, top_bar_height))
         # Fixed size for all category buttons
         btn_width = 100
         btn_height = 30
         spacing = 20
         total_width = 4 * btn_width + 3 * spacing
-        start_x = (SCREEN_WIDTH - total_width) // 2
+        start_x = (settings.SCREEN_WIDTH - total_width) // 2
 
         blocks_btn_rect = pygame.Rect(start_x, 10, btn_width, btn_height)
         enemies_btn_rect = pygame.Rect(start_x + btn_width + spacing, 10, btn_width, btn_height)
@@ -355,15 +426,27 @@ class LevelEditor:
         elif self.show_unique:
             self.draw_palette(UNIQUE_PALETTE)
 
+    # --- ADDED FOR MOUSE ANIMATION ---
+    def draw_mouse_animation(self):
+        """
+        Draw the current mouse animation frame at the bottom-right corner,
+        50px from the right and 150px from the bottom.
+        """
+        frame = self.mouse_frames[self.current_mouse_frame]
+        x = settings.SCREEN_WIDTH - 50 - frame.get_width()
+        y = settings.SCREEN_HEIGHT - 120 - frame.get_height()
+        self.screen.blit(frame, (x, y))
+    # ---------------------------------
+
     def draw_palette(self, palette_items):
         bottom_bar_height = 100
-        y = SCREEN_HEIGHT - bottom_bar_height
-        pygame.draw.rect(self.screen, (80, 80, 80), (0, y, SCREEN_WIDTH, bottom_bar_height))
+        y = settings.SCREEN_HEIGHT - bottom_bar_height
+        pygame.draw.rect(self.screen, (80, 80, 80), (0, y, settings.SCREEN_WIDTH, bottom_bar_height))
         spacing = 20
         item_width = 60
         num_items = len(palette_items)
         total_width = num_items * item_width + (num_items - 1) * spacing
-        start_x = (SCREEN_WIDTH - total_width) // 2
+        start_x = (settings.SCREEN_WIDTH - total_width) // 2
         x_offset = start_x
         for (code, path) in palette_items:
             rect = pygame.Rect(x_offset, y + 20, item_width, item_width)
@@ -383,7 +466,7 @@ class LevelEditor:
         btn_height = 30
         spacing = 20
         total_width = 4 * btn_width + 3 * spacing
-        start_x = (SCREEN_WIDTH - total_width) // 2
+        start_x = (settings.SCREEN_WIDTH - total_width) // 2
 
         blocks_btn_rect = pygame.Rect(start_x, 10, btn_width, btn_height)
         enemies_btn_rect = pygame.Rect(start_x + btn_width + spacing, 10, btn_width, btn_height)
@@ -411,9 +494,9 @@ class LevelEditor:
             self.show_blocks = self.show_enemies = self.show_collectables = False
             return True
 
-        # Palette click detection remains as before
+        # Palette click detection
         bottom_bar_height = 100
-        palette_y = SCREEN_HEIGHT - bottom_bar_height
+        palette_y = settings.SCREEN_HEIGHT - bottom_bar_height
         if my >= palette_y:
             if self.show_blocks:
                 self.detect_palette_click(mx, my, BLOCK_PALETTE)
@@ -429,12 +512,12 @@ class LevelEditor:
 
     def detect_palette_click(self, mx, my, palette_items):
         bottom_bar_height = 100
-        y = SCREEN_HEIGHT - bottom_bar_height
+        y = settings.SCREEN_HEIGHT - bottom_bar_height
         spacing = 20
         item_width = 60
         num_items = len(palette_items)
         total_width = num_items * item_width + (num_items - 1) * spacing
-        start_x = (SCREEN_WIDTH - total_width) // 2
+        start_x = (settings.SCREEN_WIDTH - total_width) // 2
         x_offset = start_x
         for (code, path) in palette_items:
             rect = pygame.Rect(x_offset, y + 20, item_width, item_width)
@@ -452,8 +535,8 @@ class LevelEditor:
         world_x = (mx + self.camera_x) / self.zoom
         world_y = (my + self.camera_y) / self.zoom
 
-        col = int(world_x // TILE_SIZE)
-        row = int(world_y // TILE_SIZE)
+        col = int(world_x // settings.TILE_SIZE)
+        row = int(world_y // settings.TILE_SIZE)
 
         # Prevent placing on the border
         if row == 0 or row == self.num_rows - 1 or col == 0 or col == self.num_cols - 1:
@@ -492,7 +575,7 @@ class LevelEditor:
     def switch_to_menu_music(self):
         pygame.mixer.music.stop()
         pygame.mixer.music.load("assets/sounds/music/menu_music.wav")
-        pygame.mixer.music.set_volume(MUSIC_VOLUME / 10.0)
+        pygame.mixer.music.set_volume(settings.MUSIC_VOLUME / 15.0)
         pygame.mixer.music.play(-1)
 
     def save_level(self):

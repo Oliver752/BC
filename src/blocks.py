@@ -7,6 +7,15 @@ BLOCK_TEXTURES = {
     'grass': pygame.image.load('assets/images/blocks/grass.png'),
     'dirt': pygame.image.load('assets/images/blocks/dirt.png'),
     'stone': pygame.image.load('assets/images/blocks/stone.png'),
+    'sand': pygame.image.load('assets/images/blocks/sand.png'),
+    'sand2': pygame.image.load('assets/images/blocks/sand2.png'),
+    'snow': pygame.image.load('assets/images/blocks/snow.png'),
+    'snow2': pygame.image.load('assets/images/blocks/snow2.png'),
+    'purple': pygame.image.load('assets/images/blocks/purple.png'),
+    'purple2': pygame.image.load('assets/images/blocks/purple2.png'),
+    'dirt2': pygame.image.load('assets/images/blocks/dirt2.png'),
+    'dirt3': pygame.image.load('assets/images/blocks/dirt3.png'),
+    'floor': pygame.image.load('assets/images/blocks/floor.png'),
 }
 
 class Block(pygame.sprite.Sprite):
