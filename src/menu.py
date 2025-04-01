@@ -11,7 +11,7 @@ from camera import Camera
 from collectables import Collectable, Heart
 from level_editor import run_editor
 
-# Helper function for collision detection
+#collision detection
 def hitbox_collide(player, collectable):
     return player.hitbox.colliderect(collectable.rect)
 
@@ -27,7 +27,7 @@ class Menu:
         self.options = ["Play", "Sandbox", "Settings", "Quit"]
         self.selected_index = 0
 
-        # Load a button image for all menus
+        # button image for all menus
         self.button_img = pygame.image.load("assets/images/btn/button300.png").convert_alpha()
         self.folder_btn_img = pygame.image.load("assets/images/btn/folder.png").convert_alpha()
         self.button_width = self.button_img.get_width()
@@ -61,6 +61,47 @@ class Menu:
         # Load menu sound assets
         self.menu_select = pygame.mixer.Sound("assets/sounds/other/selection.wav")
         self.menu_click = pygame.mixer.Sound("assets/sounds/other/click.flac")
+
+        # Load default level progression
+        self.default_progress = self.load_progress()
+    def load_progress(self):
+        progress_file = "progress.json"
+        if os.path.exists(progress_file):
+            try:
+                with open(progress_file, "r") as f:
+                    data = json.load(f)
+                return data.get("default", 1)
+            except:
+                return 1
+        else:
+            return 1
+
+    def save_progress(self, level):
+        progress_file = "progress.json"
+        data = {"default": level}
+        with open(progress_file, "w") as f:
+            json.dump(data, f, indent=4)
+    def draw_menu_buttons(self, options, selected_index, start_y=200, spacing=80):
+        for i, item in enumerate(options):
+            if isinstance(item, tuple):
+                text, locked = item
+            else:
+                text = item
+                locked = False
+            x = SCREEN_WIDTH // 2 - self.button_width // 2
+            y = start_y + i * (self.button_height + spacing)
+            rect = pygame.Rect(x, y, self.button_width, self.button_height)
+            self.screen.blit(self.button_img, rect)
+            if locked:
+                # Use a grey color to indicate locked status
+                color = (128, 128, 128)
+            else:
+                # Use blue for the selected button; otherwise black.
+                color = (0, 204, 204) if i == selected_index else (0, 0, 0)
+            surf = self.font.render(text, True, color)
+            surf_rect = surf.get_rect(center=rect.center)
+            self.screen.blit(surf, surf_rect)
+
     def draw_menu_controls(self):
         x = SCREEN_WIDTH - 50 - self.menu_controls_img.get_width()
         y = SCREEN_HEIGHT - 50 - self.menu_controls_img.get_height()
@@ -74,17 +115,6 @@ class Menu:
         text_surf = self.font.render(text, True, (255, 255, 255))
         text_rect = text_surf.get_rect(center=title_rect.center)
         self.screen.blit(text_surf, text_rect)
-
-    def draw_menu_buttons(self, options, selected_index, start_y=200, spacing=80):
-        for i, text in enumerate(options):
-            x = SCREEN_WIDTH // 2 - self.button_width // 2
-            y = start_y + i * (self.button_height + spacing)
-            rect = pygame.Rect(x, y, self.button_width, self.button_height)
-            self.screen.blit(self.button_img, rect)
-            color = (128, 128, 128) if i == selected_index else (0, 0, 0)
-            surf = self.font.render(text, True, color)
-            surf_rect = surf.get_rect(center=rect.center)
-            self.screen.blit(surf, surf_rect)
 
     def display_message(self, message, duration=2):
         start_time = pygame.time.get_ticks()
@@ -103,14 +133,11 @@ class Menu:
         while True:
             # Draw background
             self.screen.blit(self.menu_bg, (0, 0))
-
             # Draw the prompt above the field
             self.draw_title_with_bg(prompt, center_y=440)
-
             # Draw the field image first
             field_rect = field_img.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))
             self.screen.blit(field_img, field_rect)
-
             # draw the typed text on top of the field
             text_surf = self.input_font.render(input_text, True, (0, 0, 0))
             text_rect = text_surf.get_rect(center=field_rect.center)
@@ -132,7 +159,6 @@ class Menu:
                     elif event.key == pygame.K_ESCAPE:
                         return ""
                     else:
-                        # If printable and we haven't reached 8 chars, append
                         if event.unicode.isprintable() and len(input_text) < 8:
                             input_text += event.unicode
 
@@ -178,10 +204,10 @@ class Menu:
                         return False
 
     def main_menu(self):
-        pygame.mixer.music.stop()  # Stop any previous music
+        pygame.mixer.music.stop()
         pygame.mixer.music.load("assets/sounds/music/menu_music.wav")
         pygame.mixer.music.set_volume(MUSIC_VOLUME / 15.0)
-        pygame.mixer.music.play(-1)  # Loop indefinitely
+        pygame.mixer.music.play(-1)
         options = ["Play", "Sandbox", "Settings", "Quit"]
         selected = 0
         while True:
@@ -224,11 +250,29 @@ class Menu:
         folder_path = os.path.join("levels", folder)
         all_files = os.listdir(folder_path)
         levels = [f[:-5] for f in all_files if f.endswith(".json")]
-        levels.append("Back")
+        if folder == "default":
+            def get_num(name):
+                parts = name.split()
+                try:
+                    return int(parts[1])
+                except:
+                    return 0
+
+            levels = sorted(levels, key=get_num)
+            level_info = []
+            for lev in levels:
+                if get_num(lev) > self.default_progress:
+                    level_info.append((lev, True))
+                else:
+                    level_info.append((lev, False))
+            level_info.append(("Back", False))
+        else:
+            level_info = [(lev, False) for lev in levels]
+            level_info.append(("Back", False))
         selected = 0
         while True:
             self.screen.blit(self.menu_bg, (0, 0))
-            self.draw_menu_buttons(levels, selected, start_y=250, spacing=20)
+            self.draw_menu_buttons(level_info, selected, start_y=250, spacing=20)
             self.draw_menu_controls()
             pygame.display.flip()
             for event in pygame.event.get():
@@ -237,19 +281,33 @@ class Menu:
                     sys.exit()
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_UP:
-                        selected = (selected - 1) % len(levels)
+                        new_selected = (selected - 1) % len(level_info)
+                        # Skip locked levels (except "Back")
+                        while isinstance(level_info[new_selected], tuple) and level_info[new_selected][1] and \
+                                level_info[new_selected][0] != "Back":
+                            new_selected = (new_selected - 1) % len(level_info)
+                        selected = new_selected
                         self.menu_select.set_volume(EFFECTS_VOLUME / 10.0)
                         self.menu_select.play()
                     elif event.key == pygame.K_DOWN:
-                        selected = (selected + 1) % len(levels)
+                        new_selected = (selected + 1) % len(level_info)
+                        # Skip locked levels (except "Back")
+                        while isinstance(level_info[new_selected], tuple) and level_info[new_selected][1] and \
+                                level_info[new_selected][0] != "Back":
+                            new_selected = (new_selected + 1) % len(level_info)
+                        selected = new_selected
                         self.menu_select.set_volume(EFFECTS_VOLUME / 10.0)
                         self.menu_select.play()
                     elif event.key == pygame.K_RETURN:
                         self.menu_click.set_volume(EFFECTS_VOLUME / 10.0)
                         self.menu_click.play()
-                        choice = levels[selected]
+                        choice, locked = level_info[selected] if isinstance(level_info[selected], tuple) else (
+                        level_info[selected], False)
                         if choice == "Back":
                             return
+                        elif locked:
+                            # Do nothing if the level is locked.
+                            pass
                         else:
                             self.load_level(choice + ".json", folder=folder)
                             return
@@ -269,7 +327,7 @@ class Menu:
                 bottom_options = ["Add Folder", "Back"]
             else:
                 bottom_options = ["Back"]
-            # If there are folders, start in the grid zone, otherwise start at the bottom zone.
+            # If there are folders, start in the grid zone
             active_zone = "grid" if grid_count > 0 else "bottom"
             selected_grid_index = 0
             selected_bottom_index = 0
@@ -282,7 +340,7 @@ class Menu:
                 self.screen.blit(self.menu_bg, (0, 0))
                 # Draw title
                 self.draw_title_with_bg("Sandbox Folders", center_y=120)
-                # --- Draw Folder Grid ---
+                # Draw Folder Grid
                 if grid_count > 0:
                     spacing_x = 100
                     spacing_y = 40
@@ -311,7 +369,7 @@ class Menu:
                         text_rect.y -= 20
                         self.screen.blit(folder_text, text_rect)
 
-                # --- Draw Bottom Buttons (Vertical Stack) ---
+                # Draw Bottom Buttons
                 bottom_margin = 50
                 spacing = 20
                 btn_w = self.button_width
@@ -337,7 +395,7 @@ class Menu:
                 self.draw_menu_controls()
                 pygame.display.flip()
 
-                # --- Event Handling ---
+                # Event Handling
                 for event in pygame.event.get():
                     if event.type == pygame.QUIT:
                         pygame.quit()
@@ -423,7 +481,7 @@ class Menu:
     def sandbox_folder_actions(self, folder_name):
         folder_path = os.path.join("levels", "sandbox", folder_name)
         while True:
-            # Check for existing level files (.json) in this folder
+            # Check for existing level files in this folder
             levels_in_folder = [f for f in os.listdir(folder_path) if f.endswith(".json")]
             options = ["Create Level", "Browse Levels"]
             if not levels_in_folder:
@@ -491,10 +549,8 @@ class Menu:
         GRAY = (128, 128, 128)
         DISABLED = (70, 70, 70)
 
-        #length_min, length_max = 30, 100
-        #height_min, height_max = 20, 50
-        length_min, length_max = 0, 100
-        height_min, height_max = 0, 50
+        length_min, length_max = 30, 100
+        height_min, height_max = 20, 50
 
         length = length_min
         height = height_min
@@ -1084,6 +1140,7 @@ class Menu:
                             running = False
                     elif event.key == pygame.K_ESCAPE:
                         running = False
+
     def level_complete_menu(self):
         options = ["Continue", "Leave"]
         selected = 0
@@ -1096,7 +1153,8 @@ class Menu:
             self.clock.tick(FPS)
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
-                    pygame.quit(); sys.exit()
+                    pygame.quit()
+                    sys.exit()
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_UP:
                         selected = (selected - 1) % len(options)
@@ -1110,9 +1168,31 @@ class Menu:
                         self.menu_click.set_volume(EFFECTS_VOLUME / 10.0)
                         self.menu_click.play()
                         choice = options[selected]
+
+                        # If we're in the default folder, update progress regardless of the choice.
+                        if self.current_folder == "default":
+                            # Extract current level number from self.current_level (e.g., "Level 1.json")
+                            level_name = self.current_level[:-5]  # Remove .json
+                            parts = level_name.split()
+                            try:
+                                current_num = int(parts[1])
+                            except:
+                                current_num = 0
+                            # Update progress if the current level matches the progress.
+                            if current_num == self.default_progress:
+                                self.default_progress = current_num + 1
+                                self.save_progress(self.default_progress)
+
                         if choice == "Continue":
-                            self.level_select(folder=self.current_folder)
-                            return
+                            # Check if the next level exists
+                            next_level_filename = f"Level {current_num + 1}.json"
+                            if os.path.exists(os.path.join("levels", "default", next_level_filename)):
+                                self.load_level(next_level_filename, folder="default")
+                                return
+                            else:
+                                # No next level exists; go to level select
+                                self.level_select(folder="default")
+                                return
                         elif choice == "Leave":
                             self.switch_to_menu_music()
                             return

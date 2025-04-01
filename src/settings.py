@@ -1,4 +1,3 @@
-# settings.py
 
 # Screen settings
 SCREEN_WIDTH = 1920

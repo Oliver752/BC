@@ -6,6 +6,7 @@ from menu import Menu
 # Initialize Pygame
 pygame.init()
 
+pygame.mixer.set_num_channels(32)
 # Set up the screen
 screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
 SCREEN_WIDTH, SCREEN_HEIGHT = pygame.display.get_surface().get_size()

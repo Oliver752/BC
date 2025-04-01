@@ -23,7 +23,6 @@ class Bomb(pygame.sprite.Sprite):
         self.spawn_time = pygame.time.get_ticks()
         self.bounced = False
 
-        vol = EFFECTS_VOLUME / 10.0  # converting volume to range 0.0-1.0
         self.hiss_sound = pygame.mixer.Sound("assets/sounds/enemy/bomb_psss.wav")
         self.explosion_sound = pygame.mixer.Sound("assets/sounds/enemy/boom.wav")
         self.hiss_playing = False
@@ -214,11 +213,11 @@ class BomberPig(BaseEnemy):
         self.state = "patrol"
 
         # Ledge pause
-        self.ledge_pause_time = 1000  # 1 second
+        self.ledge_pause_time = 1000
         self.ledge_pause_start = 0
 
         # --- Sound effects ---
-        vol = EFFECTS_VOLUME / 10.0  # Scale volume from 0-10 to 0.0-1.0
+        vol = EFFECTS_VOLUME / 10.0
         self.sounds = {}
         # Throw sound
         self.sounds["throw"] = pygame.mixer.Sound("assets/sounds/enemy/throw.wav")
@@ -240,7 +239,7 @@ class BomberPig(BaseEnemy):
             pygame.mixer.Sound("assets/sounds/enemy/steps/step_lth4.ogg")
         ]
         self.last_step_time = 0
-        self.step_interval = 300  # milliseconds between step sounds
+        self.step_interval = 300
         self.dead_sound_played = False
 
     def play_run_sound(self):
@@ -329,6 +328,11 @@ class BomberPig(BaseEnemy):
     def update(self, player, blocks, bombs):
         now = pygame.time.get_ticks()
 
+        # Compute full Euclidean distance from the enemy to the player.
+        dx = player.rect.centerx - self.rect.centerx
+        dy = player.rect.centery - self.rect.centery
+        player_distance = math.hypot(dx, dy)
+
         # Update horizontal velocity for run sounds.
         if self.state in ("patrol", "chase"):
             self.vel_x = self.direction * self.speed
@@ -356,16 +360,13 @@ class BomberPig(BaseEnemy):
         if self.state in ("patrol", "chase") and self.on_ground(blocks) and self.vel_x != 0:
             self.play_run_sound()
 
-        # State machine
-        player_distance = abs(self.rect.centerx - player.rect.centerx)
-
         if self.state == "ledge_pause":
             self.set_animation("idle_left" if self.direction == -1 else "idle_right")
             if now - self.ledge_pause_start >= self.ledge_pause_time:
                 self.direction *= -1
                 self.state = "patrol"
         elif self.state == "idle":
-            if now - self.last_throw_time > self.throw_cooldown:
+            if player_distance < 600 and now - self.last_throw_time > self.throw_cooldown:
                 self.state = "throw"
             elif player_distance > 600:
                 self.state = "patrol"
@@ -475,7 +476,6 @@ class Pig(BaseEnemy):
         # Flip threshold
         self.direction_threshold = 5
 
-        # --- Sound Integration ---
         self.sounds = {}
         # Damaged sounds (randomized)
         self.sounds["damaged"] = [
@@ -500,8 +500,7 @@ class Pig(BaseEnemy):
         ]
         # Run sound timer
         self.last_step_time = 0
-        self.step_interval = 300  # milliseconds between step sounds
-        # Flag to ensure dead sound plays once
+        self.step_interval = 300
         self.dead_sound_played = False
 
     def play_run_sound(self):
@@ -697,7 +696,6 @@ class Pig(BaseEnemy):
 class King(BaseEnemy):
     def __init__(self, x, y):
         super().__init__(x, y)
-        # Load animations for the King (frame size 190x140).
         self.animations = {
             "idle_left":   self.load_animation("assets/images/enemies/Enemy3/idle_spritesheet.png", 190, 140, 12),
             "run_left":    self.load_animation("assets/images/enemies/Enemy3/run_spritesheet.png", 190, 140, 6),
@@ -708,7 +706,7 @@ class King(BaseEnemy):
             "hit_left":    self.load_animation("assets/images/enemies/Enemy3/hit_spritesheet.png", 190, 140, 2),
             "dead_left":   self.load_animation("assets/images/enemies/Enemy3/dead_spritesheet.png", 190, 140, 11),
         }
-        # Flip animations for right side
+        # Flip animations
         self.animations["idle_right"]   = self.flip_animation("idle_left")
         self.animations["run_right"]    = self.flip_animation("run_left")
         self.animations["jump_right"]   = self.flip_animation("jump_left")
@@ -776,9 +774,7 @@ class King(BaseEnemy):
         ]
         # Timer for step sounds to avoid spamming
         self.last_step_time = 0
-        self.step_interval = 300  # milliseconds between step sounds
-
-        # Ensure the dead sound plays only once
+        self.step_interval = 300
         self.dead_sound_played = False
 
     def play_run_sound(self):
@@ -813,9 +809,6 @@ class King(BaseEnemy):
             sound.set_volume(settings.EFFECTS_VOLUME / 10.0/2)
             sound.play()
             self.dead_sound_played = True
-
-    # Movement and collision methods (same as before)
-
     def move_and_collide(self, dx, dy, blocks):
         self.hitbox.x += dx
         for block in blocks:

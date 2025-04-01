@@ -38,13 +38,10 @@ COLLECTABLE_PALETTE = [
     ("X", "assets/images/editor/delete.png"),
 ]
 
-# New unique category containing the door and the player.
 UNIQUE_PALETTE = [
     ("P", "assets/images/editor/player.png"),
     ("F", "assets/images/blocks/door.png")
 ]
-
-# Map tile codes,used for the actual map drawing
 TILE_IMAGE_PATHS = {
     ".": None,
     "G": "assets/images/blocks/grass.png",
@@ -143,18 +140,14 @@ class LevelEditor:
 
         self.click_sound = pygame.mixer.Sound("assets/sounds/other/click.flac")
 
-        # --- ADDED FOR MOUSE ANIMATION ---
         # Prepare animation frames for the HUD mouse sprite
         self.mouse_frames = []
         self.current_mouse_frame = 0
-        self.mouse_anim_speed = 200  # ms per frame
+        self.mouse_anim_speed = 200
         self.mouse_anim_timer = 0
 
-        self.load_mouse_animation(
-            "assets/images/hud/mouse.png",  # path to your sprite sheet
-            9                               # total frames
-        )
-        # ---------------------------------
+        self.load_mouse_animation("assets/images/hud/mouse.png", 9)
+
 
     def play_click_sound(self):
         import settings
@@ -163,7 +156,6 @@ class LevelEditor:
 
     def draw_menu_buttons(self, options, selected_index, start_y=200, spacing=80):
         font = pygame.font.SysFont(None, 50)
-        # Ensure we have a button image loaded; if not, load it.
         if not hasattr(self, "button_img"):
             self.button_img = pygame.image.load("assets/images/btn/button300.png").convert_alpha()
         btn_width = self.button_img.get_width()
@@ -179,33 +171,25 @@ class LevelEditor:
             surf_rect = surf.get_rect(center=rect.center)
             self.screen.blit(surf, surf_rect)
 
-    # --- ADDED FOR MOUSE ANIMATION ---
     def load_mouse_animation(self, path, num_frames):
-        """
-        Assumes the sprite sheet is 9 frames wide, each 100x215.
-        The total image size would be 900x215 if horizontally laid out.
-        """
+
         sheet = pygame.image.load(path).convert_alpha()
         frame_width = 50
         frame_height = 100
         for i in range(num_frames):
-            # Create a surface for one frame
             frame = pygame.Surface((frame_width, frame_height), pygame.SRCALPHA)
-            # Blit from the sheet
             frame.blit(sheet, (0, 0), (i * frame_width, 0, frame_width, frame_height))
             self.mouse_frames.append(frame)
-    # ---------------------------------
+
 
     def run(self):
         clock = pygame.time.Clock()
-        pygame.mixer.music.stop()  # Stop any previous music
+        pygame.mixer.music.stop()
         pygame.mixer.music.load("assets/sounds/music/game_music.wav")
         pygame.mixer.music.set_volume(settings.MUSIC_VOLUME / 15.0)
         pygame.mixer.music.play(-1)
-
-        # Main loop
         while self.running:
-            dt = clock.tick(60)  # time in ms since last frame
+            dt = clock.tick(60)
             self.handle_events()
             self.update(dt)
             self.draw()
@@ -245,7 +229,7 @@ class LevelEditor:
                     rel = event.rel
                     self.camera_x -= rel[0]
                     self.camera_y -= rel[1]
-                # Left button drag => place tile continuously
+                # Left button drag => place tiles
                 if self.is_placing and pygame.mouse.get_pressed()[0]:
                     mx, my = pygame.mouse.get_pos()
                     self.place_tile(mx, my)
@@ -282,11 +266,8 @@ class LevelEditor:
         menu_open = True
         options = ["Resume", "Undo changes", "Save and exit"]
         current_choice = 0
-        font = pygame.font.SysFont(None, 50)
         while menu_open:
-            # Draw the pause background instead of a plain fill.
             self.screen.blit(self.pause_bg, (0, 0))
-            # Use the same helper to draw buttons (which centers them)
             self.draw_menu_buttons(options, current_choice, start_y=300, spacing=20)
             pygame.display.flip()
             for event in pygame.event.get():
@@ -318,14 +299,11 @@ class LevelEditor:
                         menu_open = False
 
     def update(self, dt):
-        # --- ADDED FOR MOUSE ANIMATION ---
         # Update the mouse animation timer
         self.mouse_anim_timer += dt
         if self.mouse_anim_timer >= self.mouse_anim_speed:
             self.mouse_anim_timer = 0
             self.current_mouse_frame = (self.current_mouse_frame + 1) % len(self.mouse_frames)
-        # ---------------------------------
-
         display_tile_size = settings.TILE_SIZE * self.zoom
         map_pix_w = self.num_cols * display_tile_size
         map_pix_h = self.num_rows * display_tile_size
@@ -355,10 +333,7 @@ class LevelEditor:
         self.draw_level()
         self.draw_grid()
         self.draw_hud()
-
-        # --- ADDED FOR MOUSE ANIMATION ---
         self.draw_mouse_animation()
-        # ---------------------------------
 
     def draw_level(self):
         display_tile_size = int(settings.TILE_SIZE * self.zoom)
@@ -410,7 +385,7 @@ class LevelEditor:
         # Center text on each button
         block_text = font.render("Blocks", True, (255, 255, 255))
         enemy_text = font.render("Enemies", True, (255, 255, 255))
-        collect_text = font.render("Collect.", True, (255, 255, 255))
+        collect_text = font.render("Pickups", True, (255, 255, 255))
         unique_text = font.render("Unique", True, (255, 255, 255))
         self.screen.blit(block_text, block_text.get_rect(center=blocks_btn_rect.center))
         self.screen.blit(enemy_text, enemy_text.get_rect(center=enemies_btn_rect.center))
@@ -426,17 +401,12 @@ class LevelEditor:
         elif self.show_unique:
             self.draw_palette(UNIQUE_PALETTE)
 
-    # --- ADDED FOR MOUSE ANIMATION ---
     def draw_mouse_animation(self):
-        """
-        Draw the current mouse animation frame at the bottom-right corner,
-        50px from the right and 150px from the bottom.
-        """
         frame = self.mouse_frames[self.current_mouse_frame]
         x = settings.SCREEN_WIDTH - 50 - frame.get_width()
         y = settings.SCREEN_HEIGHT - 120 - frame.get_height()
         self.screen.blit(frame, (x, y))
-    # ---------------------------------
+
 
     def draw_palette(self, palette_items):
         bottom_bar_height = 100
@@ -544,8 +514,6 @@ class LevelEditor:
 
         if 0 <= row < self.num_rows and 0 <= col < self.num_cols:
             current_tile = self.level_array[row][col]
-            # If the cell already contains a unique tile ("P" or "F")
-            # and the user is not trying to place a unique tile, do nothing.
             if current_tile in ("P", "F") and self.selected_tile_code not in ("P", "F"):
                 return
 

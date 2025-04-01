@@ -1,6 +1,6 @@
 import pygame
 import random
-from settings import PLAYER_SPEED, PLAYER_JUMP, GRAVITY, TILE_SIZE, EFFECTS_VOLUME
+from settings import PLAYER_SPEED, PLAYER_JUMP, GRAVITY, EFFECTS_VOLUME
 
 class Player(pygame.sprite.Sprite):
     def __init__(self, x, y):
@@ -55,25 +55,25 @@ class Player(pygame.sprite.Sprite):
 
         # Attack properties
         self.attacking = False
-        self.attack_duration = 500  # Attack lasts 500ms
+        self.attack_duration = 500
         self.attack_start_time = 0
 
         # Immunity state after taking damage
         self.immune = False
-        self.immune_timer = 0  # Time when immunity starts
-        self.immune_duration = 1000  # 1 second of immunity
+        self.immune_timer = 0
+        self.immune_duration = 1000
 
         # Knockback properties
         self.knockback = False
         self.knockback_timer = 0
-        self.knockback_duration = 500  # 0.5 seconds
-        self.knockback_force_x = 8  # Horizontal knockback force
-        self.knockback_force_y = -10  # Vertical knockback force
+        self.knockback_duration = 500
+        self.knockback_force_x = 8
+        self.knockback_force_y = -10
 
-        # Hurt state (for playing the hit animation)
+        # Hurt state for the hit animation
         self.hurt = False
         self.hurt_timer = 0
-        self.hurt_duration = 600  # Adjust duration to match hit animation length
+        self.hurt_duration = 600
 
         # Door entry flags
         self.door_entry = False
@@ -84,9 +84,6 @@ class Player(pygame.sprite.Sprite):
         # For running sound: prevent spamming by using a timer
         self.last_run_sound_time = pygame.time.get_ticks()
 
-        # -------------------------------
-        # NEW: Load sound assets for the player
-        # Effects volume is a fraction (0.0 - 1.0)
         vol = EFFECTS_VOLUME / 10.0
         self.sounds = {}
         # Run step sounds (randomized)
@@ -119,23 +116,19 @@ class Player(pygame.sprite.Sprite):
         ]
         for s in self.sounds["damaged"]:
             s.set_volume(vol)
-        # Dead sound (played once)
+        # Dead sound
         self.sounds["dead"] = pygame.mixer.Sound("assets/sounds/player/dead.ogg")
         self.sounds["dead"].set_volume(vol)
-        # -------------------------------
 
     def update_hitbox(self):
-        """Ensure the hitbox follows the player correctly."""
         self.hitbox.topleft = (self.rect.x + 110, self.rect.y + 56)
 
     def load_animation(self, path, frame_width, frame_height, num_frames):
-        """Load spritesheet and extract frames."""
         sheet = pygame.image.load(path).convert_alpha()
         return [sheet.subsurface(pygame.Rect(i * frame_width, 0, frame_width, frame_height))
                 for i in range(num_frames)]
 
     def set_animation(self, animation):
-        """Change animation if different from current."""
         # Prevent changing animation if the player is hurt (except for hit animations)
         if self.hurt and animation not in ["hit_left", "hit_right"]:
             return
@@ -144,7 +137,6 @@ class Player(pygame.sprite.Sprite):
             self.frame_index = 0
 
     def attack(self):
-        """Triggers attack animation but allows movement."""
         if not self.attacking:
             self.play_attack_sound()
             self.attacking = True
@@ -158,7 +150,6 @@ class Player(pygame.sprite.Sprite):
             self.image = self.animations[self.current_animation][self.frame_index]  # Force first frame
 
     def start_door_entry(self):
-        """Trigger door entry: play door_in sound and animation."""
         self.door_entry = True
         self.set_animation("door_in")
         self.frame_index = 0
@@ -166,8 +157,8 @@ class Player(pygame.sprite.Sprite):
 
 
     def attack_hitbox(self):
-        attack_width = 80  # Adjust based on attack range
-        attack_height = 50  # Adjust height if needed
+        attack_width = 80
+        attack_height = 50
         if self.last_direction == "right":
             return pygame.Rect(self.hitbox.right, self.hitbox.top, attack_width, attack_height)
         else:
@@ -207,7 +198,6 @@ class Player(pygame.sprite.Sprite):
             self.play_damaged_sound()
 
     def update_animation(self):
-        """Update player's animation without interrupting attack, knockback, or damage animations."""
         now = pygame.time.get_ticks()
         if self.dead:
             if now - self.last_update > 100:
@@ -258,7 +248,6 @@ class Player(pygame.sprite.Sprite):
             self.image = self.animations[self.current_animation][self.frame_index]
 
     def handle_input(self):
-        """Handles movement and attack input."""
         if self.knockback or self.door_entry:
             return
         keys = pygame.key.get_pressed()
@@ -276,11 +265,11 @@ class Player(pygame.sprite.Sprite):
                         self.vel_y = -PLAYER_JUMP
                         self.on_ground = False
                         self.can_double_jump = True
-                        self.play_jump_sound()  # Play jump sound when jumping from ground
+                        self.play_jump_sound()
                     elif self.can_double_jump:
                         self.vel_y = -PLAYER_JUMP
                         self.can_double_jump = False
-                        self.play_jump_sound()  # Play jump sound for double jump as well
+                        self.play_jump_sound()
                     self.jump_pressed = True
             else:
                 self.jump_pressed = False
@@ -288,13 +277,11 @@ class Player(pygame.sprite.Sprite):
             self.attack()
 
     def apply_gravity(self):
-        """Apply gravity to player."""
         self.vel_y += GRAVITY
         if self.vel_y > 10:
             self.vel_y = 10
 
     def move_and_collide(self, dx, dy, blocks):
-        """Handle movement and collisions."""
         self.hitbox.x += dx
         for block in blocks:
             if self.hitbox.colliderect(block.rect):
@@ -304,7 +291,6 @@ class Player(pygame.sprite.Sprite):
                     self.hitbox.left = block.rect.right
         self.rect.x = self.hitbox.x - 110
 
-        was_on_ground = self.on_ground
         self.on_ground = False
         self.hitbox.y += dy
         for block in blocks:
@@ -320,12 +306,10 @@ class Player(pygame.sprite.Sprite):
         self.rect.y = self.hitbox.y - 56
 
     def update(self, blocks, bombs, enemies):
-        """Update player state, movement, animations, and handle bomb collisions."""
         self.handle_input()
         self.apply_gravity()
         self.move_and_collide(self.vel_x, self.vel_y, blocks)
 
-        # Play running sound if on ground and moving with a delay
         if self.on_ground and self.vel_x != 0:
             current_time = pygame.time.get_ticks()
             if current_time - self.last_run_sound_time > 300:
