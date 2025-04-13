@@ -14,8 +14,6 @@ from level_editor import run_editor
 #collision detection
 def hitbox_collide(player, collectable):
     return player.hitbox.colliderect(collectable.rect)
-
-
 class Menu:
     def __init__(self, screen):
         self.screen = screen
@@ -360,7 +358,7 @@ class Menu:
                         self.folder_font = pygame.font.Font(None, 30)
                         # Highlight if this folder is selected
                         if active_zone == "grid" and selected_grid_index == i:
-                            text_color = (128, 128, 128)
+                            text_color = (0, 204, 204)
                         else:
                             text_color = (0, 0, 0)
                         folder_text = self.folder_font.render(folder_name, True, text_color)
@@ -385,7 +383,7 @@ class Menu:
 
                     # Highlight if selected
                     if active_zone == "bottom" and selected_bottom_index == j:
-                        text_color = (128, 128, 128)
+                        text_color = (0, 204, 204)
                     else:
                         text_color = (0, 0, 0)
 
@@ -518,6 +516,7 @@ class Menu:
                                 # Ensure folder has less than 5 levels
                                 if len(levels_in_folder) >= 5:
                                     self.display_message("Max 5 levels reached in this folder!")
+                                    pygame.event.clear()
                                     break
                                 self.create_new_level(folder=os.path.join("sandbox", folder_name))
                                 break
@@ -551,6 +550,7 @@ class Menu:
 
         length_min, length_max = 30, 100
         height_min, height_max = 20, 50
+
 
         length = length_min
         height = height_min

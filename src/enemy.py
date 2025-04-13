@@ -253,10 +253,6 @@ class BomberPig(BaseEnemy):
 
 
     def patrol(self, blocks):
-        """
-        Moves horizontally using the hitbox, but if we detect a ledge,
-        we switch to 'ledge_pause' instead of flipping immediately.
-        """
         original_x = self.hitbox.x
         self.hitbox.x += self.direction * self.speed
         # Check horizontal collision

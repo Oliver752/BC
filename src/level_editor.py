@@ -166,7 +166,7 @@ class LevelEditor:
             rect = pygame.Rect(x, y, btn_width, btn_height)
             self.screen.blit(self.button_img, rect)
             # Use grey when selected, black otherwise.
-            color = (128, 128, 128) if i == selected_index else (0, 0, 0)
+            color = (0, 204, 204) if i == selected_index else (0, 0, 0)
             surf = font.render(text, True, color)
             surf_rect = surf.get_rect(center=rect.center)
             self.screen.blit(surf, surf_rect)

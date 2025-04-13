@@ -282,27 +282,42 @@ class Player(pygame.sprite.Sprite):
             self.vel_y = 10
 
     def move_and_collide(self, dx, dy, blocks):
+        # Horizontal movement
         self.hitbox.x += dx
         for block in blocks:
             if self.hitbox.colliderect(block.rect):
                 if dx > 0:
                     self.hitbox.right = block.rect.left
-                if dx < 0:
+                elif dx < 0:
                     self.hitbox.left = block.rect.right
         self.rect.x = self.hitbox.x - 110
 
-        self.on_ground = False
+        # Vertical movement
         self.hitbox.y += dy
+        collision_occurred = False
         for block in blocks:
             if self.hitbox.colliderect(block.rect):
+                collision_occurred = True
                 if dy > 0:
                     self.hitbox.bottom = block.rect.top
                     self.vel_y = 0
                     self.on_ground = True
                     self.can_double_jump = True
-                if dy < 0:
+                elif dy < 0:
                     self.hitbox.top = block.rect.bottom
                     self.vel_y = 0
+        if not collision_occurred:
+            # Check a small margin below the hitbox (e.g., 5 pixels)
+            ground_check = self.hitbox.copy()
+            ground_check.y += 5  # Margin for ground detection
+            for block in blocks:
+                if ground_check.colliderect(block.rect):
+                    self.on_ground = True
+                    self.can_double_jump = True
+                    break
+            else:
+                self.on_ground = False
+
         self.rect.y = self.hitbox.y - 56
 
     def update(self, blocks, bombs, enemies):
